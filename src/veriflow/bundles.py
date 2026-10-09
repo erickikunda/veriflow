@@ -9,20 +9,160 @@ from pathlib import Path
 from sqlalchemy import select
 
 from veriflow.domain import VeriFlowError
+from veriflow.envelope import resolve as resolve_envelope
 from veriflow.indexing import verified_source
 from veriflow.joern_claims import RULE_POLICIES, native_audit
 from veriflow.persistence import Candidate, EvidenceBundle, ScanAttempt, exclusive_worker
 from veriflow.python_parser import MAX_BYTES
 from veriflow.sarif import MAX_SARIF_BYTES, bind_location, fingerprint, indexed
+from veriflow.source_context import covered_steps
 
-BUILDER_VERSION = "13"
-MAX_LOCATIONS = 8
+BUILDER_VERSION = "15"
 MAX_BUNDLE_BYTES = 32 * 1024
 MAX_SOURCE_BYTES = 16 * 1024
 
 
 def canonical(value):
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+
+
+def merge_duplicates(references):
+    """Collapse references that bind to one source region; no evidence is discarded."""
+    merged, seen = [], {}
+    for role, reference, metadata in references:
+        identity = (
+            None
+            if reference is None
+            else (role, reference["path"], reference["line"], reference["end_line"])
+        )
+        position = seen.get(identity) if identity is not None else None
+        if position is None:
+            if identity is not None:
+                seen[identity] = len(merged)
+            merged.append([role, reference, dict(metadata), []])
+            continue
+        covered = merged[position][3]
+        for item in (metadata, merged[position][2]):
+            step = item.get("flow_step")
+            if step is not None and step not in covered:
+                covered.append(step)
+    return [
+        (
+            role,
+            reference,
+            {**metadata, **({"flow_steps_covered": sorted(covered)} if covered else {})},
+        )
+        for role, reference, metadata, covered in merged
+    ]
+
+
+def select_references(references, limit):
+    """Keep the reported location, the flow head and the flow tail; elide the middle only."""
+    # Positions, not object identity, carry the original order through the partition.
+    kept, elided = [], []
+    by_role = {role: [] for role in ("primary", "flow", "related")}
+    for position, item in enumerate(references):
+        by_role.setdefault(item[0], []).append(position)
+    primary, flow, related = by_role["primary"], by_role["flow"], by_role["related"]
+    kept.extend(primary[:limit])
+    elided.extend(primary[limit:])
+    budget = limit - len(kept)
+    if len(flow) <= budget:
+        kept.extend(flow)
+    else:
+        head = (budget + 1) // 2
+        tail = budget - head
+        kept.extend(flow[:head])
+        elided.extend(flow[head : len(flow) - tail] if tail else flow[head:])
+        if tail:
+            kept.extend(flow[len(flow) - tail :])
+    budget = limit - len(kept)
+    kept.extend(related[:budget])
+    elided.extend(related[budget:])
+    return (
+        [references[position] for position in sorted(kept)],
+        [references[position] for position in sorted(elided)],
+    )
+
+
+def elided_index(elided, limit):
+    """Name the omitted steps without their source so the omission stays legible, not hidden."""
+    index = []
+    for role, reference, metadata in elided[:limit]:
+        if reference is None:
+            continue
+        entry = {"role": role, "path": reference["path"], "line": reference["line"]}
+        if metadata.get("flow_step") is not None:
+            entry["flow_step"] = metadata["flow_step"]
+        index.append(entry)
+    return index
+
+
+def within_window(references, window):
+    """Split into the span's locations and the rest; reported and related locations always stay."""
+    if window is None:
+        return list(references), []
+    first, last = window["flow_step_start"], window["flow_step_end"]
+    inside, outside = [], []
+    for item in references:
+        in_span = item[0] != "flow" or any(first <= step <= last for step in covered_steps(item[2]))
+        (inside if in_span else outside).append(item)
+    return inside, outside
+
+
+def excerpt_options(lines, start, end, context, whole_file):
+    """Excerpt widths for one region, narrowest first; allocation picks the widest that fits."""
+    options, seen = [], set()
+    for pad in range(context + 1):
+        window = (max(1, start - pad), min(len(lines), end + pad))
+        if window not in seen:
+            seen.add(window)
+            options.append(window)
+    if whole_file and (1, len(lines)) not in seen:
+        options.append((1, len(lines)))
+    return options
+
+
+def allocate_source(items, budget):
+    """Max-min fair: every retained location gets its narrowest excerpt before any gets context.
+
+    Endpoints are served first so a large intermediate region cannot starve the flow's source or
+    sink, which is exactly what bounded head/tail retention set out to keep. One whole-file
+    excerpt per file is then funded before general context, because the syntax gates rebuild a
+    file from its excerpts and a file covered only in part cannot be rebuilt at all.
+    """
+    levels = [None] * len(items)
+    order = sorted(
+        range(len(items)),
+        key=lambda index: (items[index]["priority"], items[index]["sizes"][0], index),
+    )
+    remaining = budget
+    for index in order:
+        if remaining >= items[index]["sizes"][0]:
+            levels[index] = 0
+            remaining -= items[index]["sizes"][0]
+    # Fund one complete excerpt per file; the others stay narrow rather than repeat it.
+    complete = {}
+    for index in order:
+        item = items[index]
+        whole = item.get("whole_file_level")
+        if levels[index] is None or whole is None or item["file_key"] in complete:
+            continue
+        extra = item["sizes"][whole] - item["sizes"][levels[index]]
+        if extra <= remaining:
+            remaining, levels[index] = remaining - extra, whole
+            complete[item["file_key"]] = index
+    upgraded = True
+    while upgraded:
+        upgraded = False
+        for index, item in enumerate(items):
+            level = levels[index]
+            if level is None or level + 1 >= len(item["sizes"]):
+                continue
+            extra = item["sizes"][level + 1] - item["sizes"][level]
+            if extra <= remaining:
+                remaining, levels[index], upgraded = remaining - extra, level + 1, True
+    return levels
 
 
 def get_bundle(store, bundle_id):
@@ -35,13 +175,13 @@ def get_bundle(store, bundle_id):
         return {"bundle_id": bundle.id, **bundle.content}
 
 
-def build_bundle(store, attempt_id, candidate_fingerprint):
+def build_bundle(store, attempt_id, candidate_fingerprint, envelope=None, window=None):
     store.require_initialized()
     with exclusive_worker(store.root):
-        return _build_bundle(store, attempt_id, candidate_fingerprint)
+        return _build_bundle(store, attempt_id, candidate_fingerprint, envelope, window)
 
 
-def _build_bundle(store, attempt_id, candidate_fingerprint):
+def _build_bundle(store, attempt_id, candidate_fingerprint, envelope=None, window=None):
     with store.transaction() as session:
         attempt = session.get(ScanAttempt, attempt_id)
         candidate = session.scalar(
@@ -52,9 +192,10 @@ def _build_bundle(store, attempt_id, candidate_fingerprint):
     if attempt is None or candidate is None:
         raise VeriFlowError("Scan candidate not found")
     run, manifest, tree = verified_source(store, attempt.run_id)
+    bounds = (envelope or resolve_envelope()).for_rule(candidate.evidence.get("rule_id"))
     if candidate.evidence.get("origin") == "llm_discovery":
         return _build_llm_bundle(
-            store, attempt, candidate, run, manifest, tree, candidate_fingerprint
+            store, attempt, candidate, run, manifest, tree, candidate_fingerprint, bounds
         )
     raw_path = store.root / "scans" / attempt.id / "results.sarif"
     if (
@@ -104,23 +245,31 @@ def _build_bundle(store, attempt_id, candidate_fingerprint):
                 )
         for location in result.get("relatedLocations", []):
             locations.append(("related", location.get("physicalLocation", {}), {}))
-        location_limit = MAX_LOCATIONS + int(
+        location_limit = bounds.max_locations + int(
             candidate.evidence["rule_id"] == "veriflow/joern-rust-env-shell-v1"
             and attempt.report.get("scanner", {}).get("engine_id") == "joern"
         )
-        references = [
+        # Bind every location first: duplicates must be collapsed before the budget is spent.
+        bound = [
             (role, bind_location(location, sarif_run, manifest, tree), metadata)
-            for role, location, metadata in locations[:location_limit]
+            for role, location, metadata in locations
         ]
+        distinct = merge_duplicates(bound)
+        scoped, outside = within_window(distinct, window)
+        references, elided = select_references(scoped, location_limit)
     except (KeyError, TypeError, ValueError, IndexError, AttributeError, RecursionError):
         raise VeriFlowError("Cannot interpret candidate SARIF evidence") from None
-    snippets, gaps, source_bytes = [], [], 0
+    snippets, gaps, notes, source_bytes = [], [], [], 0
     if not result.get("locations"):
         gaps.append("primary_location_missing")
     if not references:
         gaps.append("no_locations")
-    if len(locations) > location_limit:
-        gaps.append("location_limit")
+    if elided:
+        gaps.append(f"location_limit:{len(elided)}_elided")
+    if outside:
+        gaps.append(f"window_scope:{len(outside)}_outside")
+    endpoints = {0, len(references) - 1}
+    resolved = []
     for position, (role, reference, metadata) in enumerate(references):
         if reference is None:
             gaps.append(f"location_{position}:unmapped")
@@ -136,12 +285,11 @@ def _build_bundle(store, attempt_id, candidate_fingerprint):
             encoding = tokenize.detect_encoding(io.BytesIO(contents).readline)[0]
             lines = io.StringIO(contents.decode(encoding), newline="").readlines()
             start, end = reference["line"], reference["end_line"]
-            if end > len(lines) or end - start + 1 > 40:
+            if end > len(lines) or end - start + 1 > bounds.max_region_lines:
                 raise VeriFlowError("range_limit")
-            start, end = max(1, start - 3), min(len(lines), end + 3)
             # Small Java/C# files retain imports and declaration context for syntax gates.
             # Existing cumulative source/envelope limits still apply.
-            if len(lines) <= 40 and (
+            whole_file = len(lines) <= bounds.max_region_lines and (
                 record.path.endswith((".java", ".cs"))
                 or (
                     record.path.endswith(
@@ -150,23 +298,24 @@ def _build_bundle(store, attempt_id, candidate_fingerprint):
                     and candidate.evidence["rule_id"] in RULE_POLICIES
                     and attempt.report.get("scanner", {}).get("engine_id") == "joern"
                 )
-            ):
-                start, end = 1, len(lines)
-            text = "".join(lines[start - 1 : end])
-            size = len(text.encode())
-            if source_bytes + size > MAX_SOURCE_BYTES:
-                raise VeriFlowError("source_budget")
-            source_bytes += size
-            snippets.append(
+            )
+            options = excerpt_options(lines, start, end, bounds.context_lines, whole_file)
+            texts = ["".join(lines[first - 1 : last]) for first, last in options]
+            resolved.append(
                 {
-                    "id": f"E{position + 1}",
+                    "file_key": (reference["path"], reference["sha256"]),
+                    "whole_file_level": (
+                        options.index((1, len(lines))) if (1, len(lines)) in options else None
+                    ),
+                    "position": position,
                     "role": role,
-                    **metadata,
-                    **reference,
-                    "excerpt_line": start,
-                    "excerpt_end_line": end,
-                    "source_line_count": len(lines),
-                    "text": text,
+                    "reference": reference,
+                    "metadata": metadata,
+                    "line_count": len(lines),
+                    "priority": 0 if role == "primary" or position in endpoints else 1,
+                    "options": options,
+                    "texts": texts,
+                    "sizes": [len(text.encode()) for text in texts],
                 }
             )
         except VeriFlowError as exc:
@@ -175,6 +324,32 @@ def _build_bundle(store, attempt_id, candidate_fingerprint):
             gaps.append(f"location_{position}:{exc}")
         except (UnicodeError, SyntaxError, LookupError):
             gaps.append(f"location_{position}:encoding")
+    trimmed = 0
+    for item, level in zip(
+        resolved, allocate_source(resolved, bounds.max_source_bytes), strict=True
+    ):
+        if level is None:
+            gaps.append(f"location_{item['position']}:source_budget")
+            continue
+        trimmed += level < len(item["options"]) - 1
+        first, last = item["options"][level]
+        source_bytes += item["sizes"][level]
+        snippets.append(
+            {
+                "id": f"E{item['position'] + 1}",
+                "role": item["role"],
+                **item["metadata"],
+                **item["reference"],
+                "excerpt_line": first,
+                "excerpt_end_line": last,
+                "source_line_count": item["line_count"],
+                "text": item["texts"][level],
+            }
+        )
+    if trimmed:
+        # Narrower context is a reduction, not a loss: every location is still materialized.
+        # It stays visible as a note so the gates, not a proxy, decide on sufficiency.
+        notes.append(f"source_budget_trimmed:{trimmed}")
     message = candidate.evidence["message"]
     if len(message.encode()) > 2048:
         message = message.encode()[:2048].decode(errors="ignore")
@@ -202,9 +377,15 @@ def _build_bundle(store, attempt_id, candidate_fingerprint):
         "sarif_sha256": attempt.report["sarif_sha256"],
         "snippets": snippets,
         "gaps": gaps,
+        "notes": notes,
         "status": "partial" if gaps else "ready",
         "locations_total": len(locations),
         "locations_considered": len(references),
+        "duplicate_locations_merged": len(bound) - len(distinct),
+        "location_limit": location_limit,
+        "elided_locations": elided_index(elided + outside, bounds.max_elided_index),
+        "envelope": bounds.record(),
+        "window": window,
         "trust": "untrusted_source_and_tool_output",
         "reachability_proven": False,
     }
@@ -217,9 +398,10 @@ def _build_bundle(store, attempt_id, candidate_fingerprint):
             raw,
             result,
             policy=RULE_POLICIES[content["rule_id"]],
+            max_nodes=location_limit - 1,
         )
-    if len(canonical(content)) > MAX_BUNDLE_BYTES:
-        raise VeriFlowError("Evidence bundle exceeds the 32 KiB envelope limit")
+    if len(canonical(content)) > bounds.max_bundle_bytes:
+        raise VeriFlowError("Evidence bundle exceeds the configured envelope limit")
     verified_source(store, run.id)
     identity = hashlib.sha256(canonical(content)).hexdigest()
     with store.transaction() as session:
@@ -228,11 +410,13 @@ def _build_bundle(store, attempt_id, candidate_fingerprint):
     return get_bundle(store, identity)
 
 
-def _build_llm_bundle(store, attempt, candidate, run, manifest, tree, candidate_fingerprint):
+def _build_llm_bundle(
+    store, attempt, candidate, run, manifest, tree, candidate_fingerprint, bounds
+):
     """Build snapshot-bound evidence without pretending the proposal came from SARIF."""
     proposal = candidate.evidence.get("llm_discovery", {})
     locations = proposal.get("locations", [])
-    if not locations or len(locations) > MAX_LOCATIONS:
+    if not locations or len(locations) > bounds.max_locations:
         raise VeriFlowError("LLM discovery candidate has invalid location count")
     records = {record.path: record for record in manifest.files}
     snippets, gaps, source_bytes = [], [], 0
@@ -245,7 +429,7 @@ def _build_llm_bundle(store, attempt, candidate, run, manifest, tree, candidate_
                 or type(location["line"]) is not int
                 or type(location["end_line"]) is not int
                 or not 1 <= location["line"] <= location["end_line"]
-                or location["end_line"] - location["line"] >= 40
+                or location["end_line"] - location["line"] >= bounds.max_region_lines
             ):
                 raise VeriFlowError("unverified_location")
             payload = (tree / record.path).read_bytes()
@@ -254,11 +438,11 @@ def _build_llm_bundle(store, attempt, candidate, run, manifest, tree, candidate_
             lines = payload.decode("utf-8").splitlines(keepends=True)
             if location["end_line"] > len(lines):
                 raise VeriFlowError("range_limit")
-            start = max(1, location["line"] - 3)
-            end = min(len(lines), location["end_line"] + 3)
+            start = max(1, location["line"] - bounds.context_lines)
+            end = min(len(lines), location["end_line"] + bounds.context_lines)
             text = "".join(lines[start - 1 : end])
             size = len(text.encode())
-            if source_bytes + size > MAX_SOURCE_BYTES:
+            if source_bytes + size > bounds.max_source_bytes:
                 raise VeriFlowError("source_budget")
             source_bytes += size
             snippets.append(
@@ -301,14 +485,20 @@ def _build_llm_bundle(store, attempt, candidate, run, manifest, tree, candidate_
         "cwe": candidate.evidence.get("cwe"),
         "snippets": snippets,
         "gaps": gaps,
+        "notes": [],
         "status": "partial" if gaps or not snippets else "ready",
         "locations_total": len(locations),
         "locations_considered": len(locations),
+        "duplicate_locations_merged": 0,
+        "location_limit": bounds.max_locations,
+        "elided_locations": [],
+        "window": None,
+        "envelope": bounds.record(),
         "trust": "untrusted_source_and_model_proposal",
         "reachability_proven": False,
     }
-    if len(canonical(content)) > MAX_BUNDLE_BYTES:
-        raise VeriFlowError("Evidence bundle exceeds the 32 KiB envelope limit")
+    if len(canonical(content)) > bounds.max_bundle_bytes:
+        raise VeriFlowError("Evidence bundle exceeds the configured envelope limit")
     verified_source(store, run.id)
     identity = hashlib.sha256(canonical(content)).hexdigest()
     with store.transaction() as session:

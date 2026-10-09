@@ -63,7 +63,7 @@ def test_batch_halts_before_second_candidate(store, scanned, monkeypatch):
     calls = []
     monkeypatch.setattr(batch_triage, "build_bundle", lambda *a: {"bundle_id": "fixture"})
 
-    def uncertain(*args):
+    def uncertain(*args, **kwargs):
         calls.append(args[-1])
         return {"state": "unknown"}
 

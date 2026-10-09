@@ -40,9 +40,7 @@ def set_budget(store, run_id, limit_micro_usd, max_requests=None):
         if existing and existing.limit_micro_usd != limit_micro_usd:
             raise VeriFlowError("Run budget is already fixed; changing it is not supported")
         if existing and max_requests is not None and existing.max_requests != max_requests:
-            raise VeriFlowError(
-                "Run request limit is already fixed; changing it is not supported"
-            )
+            raise VeriFlowError("Run request limit is already fixed; changing it is not supported")
         if existing is None:
             session.add(
                 TriageBudget(
@@ -58,9 +56,8 @@ def triage_report(store, run_id, offset=0, limit=100):
     if offset < 0 or not 1 <= limit <= 1000:
         raise VeriFlowError("Invalid triage pagination")
     with store.transaction() as session:
+        # An unmetered run records charges without a budget row; spend must stay readable.
         budget = session.get(TriageBudget, run_id)
-        if budget is None:
-            raise VeriFlowError("Run triage budget is not configured")
         charged = session.scalar(
             select(func.coalesce(func.sum(TriageCall.charged_micro_usd), 0)).where(
                 TriageCall.run_id == run_id
@@ -90,20 +87,23 @@ def triage_report(store, run_id, offset=0, limit=100):
             "schema_version": "1",
             "run_id": run_id,
             "report_kind": "triage_ledger",
-            "budget_micro_usd": budget.limit_micro_usd,
+            "budget_micro_usd": budget.limit_micro_usd if budget else None,
+            "metered": budget is not None,
             "accounted_micro_usd": charged + discovery_charged,
-            "remaining_micro_usd": max(
-                0, budget.limit_micro_usd - charged - discovery_charged
+            "remaining_micro_usd": (
+                max(0, budget.limit_micro_usd - charged - discovery_charged) if budget else None
             ),
-            "overrun_micro_usd": max(
-                0, charged + discovery_charged - budget.limit_micro_usd
+            "overrun_micro_usd": (
+                max(0, charged + discovery_charged - budget.limit_micro_usd) if budget else None
             ),
             "verified_finding_count": None,
             "total": total,
             "discovery_call_count": discovery_total,
             "request_count": total + discovery_total,
-            "max_requests": budget.max_requests,
-            "remaining_requests": max(0, budget.max_requests - total - discovery_total),
+            "max_requests": budget.max_requests if budget else None,
+            "remaining_requests": (
+                max(0, budget.max_requests - total - discovery_total) if budget else None
+            ),
             "offset": offset,
             "limit": limit,
             "calls": [
@@ -114,7 +114,15 @@ def triage_report(store, run_id, offset=0, limit=100):
 
 
 def triage(
-    store, bundle_id: str, config: ModelConfig, adapter: Adapter, key: str, *, review_policy=None
+    store,
+    bundle_id: str,
+    config: ModelConfig,
+    adapter: Adapter,
+    key: str,
+    *,
+    review_policy=None,
+    unmetered=False,
+    allow_degraded_evidence=False,
 ):
     if not key.strip() or len(key) > 200:
         raise VeriFlowError("Triage key must contain 1–200 characters")
@@ -181,7 +189,7 @@ def triage(
                     "accounted_micro_usd": existing.charged_micro_usd,
                 }
             budget = session.get(TriageBudget, run_id)
-            if budget is None:
+            if budget is None and not unmetered:
                 raise VeriFlowError("Configure a run triage budget before requesting triage")
             requests = session.scalar(
                 select(func.count()).select_from(TriageCall).where(TriageCall.run_id == run_id)
@@ -190,7 +198,7 @@ def triage(
                 .select_from(DiscoveryCall)
                 .where(DiscoveryCall.run_id == run_id)
             )
-            if requests >= budget.max_requests:
+            if not unmetered and requests >= budget.max_requests:
                 raise VeriFlowError("Run triage request limit exhausted; no provider was invoked")
             spent = session.scalar(
                 select(func.coalesce(func.sum(TriageCall.charged_micro_usd), 0)).where(
@@ -201,17 +209,23 @@ def triage(
                     DiscoveryCall.run_id == run_id
                 )
             )
-            state = "running"
-            if bundle["status"] != "ready" or not bundle["snippets"]:
-                state, reservation = "incomplete_evidence", 0
-            elif preflight is not None and not preflight["passed"]:
-                state, reservation = "incomplete_evidence", 0
-            elif (
+            degraded = []
+            if bundle["status"] != "ready":
+                degraded.append("bundle_" + ";".join(bundle.get("gaps", []) or ["partial"]))
+            if not bundle["snippets"]:
+                degraded.append("no_snippets")
+            if preflight is not None and not preflight["passed"]:
+                degraded.append("preflight_" + preflight["status"])
+            unsupported = (
                 preflight is None
                 and not requirements(bundle["rule_id"], bundle_engine(bundle))["supported"]
-            ):
+            )
+            state = "running"
+            if degraded and not allow_degraded_evidence:
+                state, reservation = "incomplete_evidence", 0
+            elif unsupported and not allow_degraded_evidence:
                 state, reservation = "unsupported_rule", 0
-            elif spent + reservation > budget.limit_micro_usd:
+            elif not unmetered and spent + reservation > budget.limit_micro_usd:
                 state, reservation = "budget_exhausted", 0
             identity = str(uuid4())
             result = {
@@ -239,6 +253,9 @@ def triage(
                 "decision": None,
                 "disposition": "abstain",
                 "verified": False,
+                "evidence_degraded": sorted(degraded),
+                "unsupported_rule_accepted": bool(unsupported and allow_degraded_evidence),
+                "metered": not unmetered,
             }
             if review_policy is not None:
                 result.update(
@@ -292,7 +309,11 @@ def triage(
                         gate = assess_evidence(bundle, decision)
                     result["evidence_gate"] = gate
                     if decision.verdict != "abstain" and not gate["passed"]:
+                        # Keep the model's rationale for an operator; never treat it as verified.
                         state = "evidence_rejected"
+                        result["disposition"] = "abstain"
+                    if result["evidence_degraded"] and decision.verdict != "abstain":
+                        state = "advisory_unverified"
                         result["disposition"] = "abstain"
             elif reply.status == "completed":
                 state = "invalid_output"

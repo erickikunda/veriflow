@@ -44,6 +44,7 @@ def main():
             "joern-go",
             "joern-rust",
             "joern-rust-env",
+            "joern-rust-wide",
             "joern-rust-advisory",
             "joern-c",
             "joern-cpp",
@@ -152,6 +153,12 @@ def main():
             "--joern-home /opt/joern-cli --rust-home /opt/rust --output /work/acceptance"
         )
         results_file = "case-results.json"
+    elif args.suite == "joern-rust-wide":
+        scan = (
+            "/opt/veriflow-venv/bin/python /opt/veriflow/scripts/validate_joern_rust_wide.py "
+            "--joern-home /opt/joern-cli --rust-home /opt/rust --output /work/acceptance"
+        )
+        results_file = "wide-gate.json"
     elif args.suite == "joern-rust":
         scan = (
             "/opt/veriflow-venv/bin/python "

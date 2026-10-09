@@ -7,6 +7,8 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from veriflow.source_context import covered_steps
+
 GATE_VERSION = "8"
 POLICIES = {
     "cs/sql-injection": {
@@ -156,7 +158,8 @@ def flow_nodes(bundle, snippet, ranges):
 
 def flask_mapping(bundle, source):
     """Map only a complete retained import prefix, using complete bounded file context."""
-    if not isinstance(source.get("flow_step"), int) or source["flow_step"] == 0:
+    steps = covered_steps(source)
+    if not steps or min(steps) == 0:
         return None
     snippets = [
         item
@@ -226,12 +229,16 @@ def flask_mapping(bundle, source):
     if len(imports) != 1 or imports[0] not in tree.body:
         return None
     imported = imports[0]
+    # Merged regions stand for several steps, so the prefix is compared by coverage.
+    first = min(covered_steps(source))
     prefix = [
         item
         for item in snippets
-        if item.get("flow_id") == source["flow_id"] and item["flow_step"] < source["flow_step"]
+        if item.get("flow_id") == source["flow_id"]
+        and covered_steps(item)
+        and min(covered_steps(item)) < first
     ]
-    if {item["flow_step"] for item in prefix} != set(range(source["flow_step"])):
+    if {step for item in prefix for step in covered_steps(item)} != set(range(first)):
         return None
     if any(
         item["line"] != imported.lineno or item["end_line"] != imported.end_lineno
@@ -474,18 +481,23 @@ def _assess_supported(bundle, decision, policy):
     linked = False
     for source in source_nodes:
         for sink in sink_nodes:
+            # Compare the steps a snippet covers: merged regions still span source to sink.
+            source_steps, sink_steps = covered_steps(source), covered_steps(sink)
             if (
                 source["flow_id"] != sink["flow_id"]
                 or source["flow_id"] not in flow_ids
-                or source["flow_step"] > sink["flow_step"]
-                or sink["flow_step"] != sink["flow_steps"] - 1
+                or not source_steps
+                or not sink_steps
+                or min(source_steps) > max(sink_steps)
+                or max(sink_steps) != sink["flow_steps"] - 1
             ):
                 continue
             if policy.get("language") in ("java", "csharp"):
                 thread = [n for n in bundle["snippets"] if n.get("flow_id") == source["flow_id"]]
-                if {n["flow_step"] for n in thread} != set(range(sink["flow_steps"])):
+                spanned = {step for n in thread for step in covered_steps(n)}
+                if spanned != set(range(sink["flow_steps"])):
                     continue
-            if source["flow_step"] == 0:
+            if 0 in source_steps:
                 linked = True
             elif mapping := flask_mapping(bundle, source):
                 linked = True

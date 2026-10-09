@@ -95,7 +95,9 @@ def test_unknown_evidence_and_bundle_fail_without_writes(store, review_fixture):
 def test_partial_bundle_allows_deferral_but_not_definitive_assertion(store, evidence_fixture):
     from veriflow.persistence import Run
 
-    run, attempt, fingerprint, _ = evidence_fixture(flow_count=20)
+    run, attempt, fingerprint, _ = evidence_fixture(
+        flow_count=20, distinct_flow=True, source="".join(f"x = {n}\n" for n in range(24))
+    )
     with store.transaction() as session:
         repo = session.get(Run, run).repo_id
     bundle = build_bundle(store, attempt, fingerprint)

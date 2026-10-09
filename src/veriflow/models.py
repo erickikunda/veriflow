@@ -38,12 +38,15 @@ class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
 
+MAX_CITATIONS = 8
+
+
 class Decision(StrictModel):
     verdict: Literal["needs_review", "likely_false_positive", "abstain"]
     rationale: str = Field(min_length=1, max_length=2000)
-    evidence_ids: list[str] = Field(max_length=8)
+    evidence_ids: list[str] = Field(max_length=MAX_CITATIONS)
     counterevidence: str = Field(max_length=2000)
-    claims: list[EvidenceClaim] = Field(default_factory=list, max_length=8)
+    claims: list[EvidenceClaim] = Field(default_factory=list, max_length=MAX_CITATIONS)
 
 
 class Usage(StrictModel):
@@ -157,8 +160,13 @@ def request_body(bundle, config, *, review_policy=None):
             },
         }
         # Conservative byte bound avoids knowingly relying on daemon prompt truncation.
-        if len(canonical(body)) + 4096 + config.max_output_tokens > config.ollama_context_tokens:
-            raise VeriFlowError("Ollama context budget too small for this evidence request")
+        required = len(canonical(body)) + 4096 + config.max_output_tokens
+        if required > config.ollama_context_tokens:
+            raise VeriFlowError(
+                f"Ollama context budget too small for this evidence request: needs {required}, "
+                f"configured {config.ollama_context_tokens}; raise ollama_context_tokens in the "
+                "model configuration or lower the envelope's max_bundle_bytes"
+            )
         return body
     if config.provider == "anthropic":
         return {

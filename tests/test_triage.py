@@ -40,6 +40,7 @@ def evidence_fixture(store, archive, manifest):
         uri="app.py",
         source="def f(x):\n    return eval(x)\n",
         rule_id="py/code-injection",
+        distinct_flow=False,
     ):
         with zipfile.ZipFile(archive, "w") as out:
             out.writestr("app.py", source)
@@ -47,6 +48,12 @@ def evidence_fixture(store, archive, manifest):
         run_id = process(store, ArtifactStore(store.root), batch)["items"][0]["run_id"]
         _, snapshot, tree = verified_source(store, run_id)
         physical = {"artifactLocation": {"uri": uri}, "region": {"startLine": 2}}
+
+        def step(index):
+            # Distinct steps exercise truncation; repeated ones exercise duplicate merging.
+            line = index + 2 if distinct_flow else 2
+            return {"artifactLocation": {"uri": uri}, "region": {"startLine": line}}
+
         result = {
             "ruleId": rule_id,
             "message": {"text": "Untrusted input"},
@@ -56,8 +63,8 @@ def evidence_fixture(store, archive, manifest):
                     "threadFlows": [
                         {
                             "locations": [
-                                {"location": {"physicalLocation": physical}}
-                                for _ in range(flow_count)
+                                {"location": {"physicalLocation": step(index)}}
+                                for index in range(flow_count)
                             ]
                         }
                     ]
@@ -166,7 +173,14 @@ def test_bundle_pinned_idempotent_and_read_only(store, evidence_fixture):
 @pytest.mark.parametrize(
     "kwargs,gap",
     [
-        ({"flow_count": 20}, "location_limit"),
+        (
+            {
+                "flow_count": 20,
+                "distinct_flow": True,
+                "source": "".join(f"x = {n}\n" for n in range(24)),
+            },
+            "location_limit",
+        ),
         ({"uri": "../app.py"}, "unmapped"),
         ({"source": "x=1\n"}, "range_limit"),
         ({"source": "def f():\n #" + "x" * 20000 + "\n pass"}, "source_budget"),

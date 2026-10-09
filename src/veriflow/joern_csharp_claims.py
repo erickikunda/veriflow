@@ -2,7 +2,7 @@
 
 from veriflow.csharp_claims import anchors as syntax_anchors
 from veriflow.csharp_locations import validate_locations
-from veriflow.source_context import complete_context
+from veriflow.source_context import complete_context, covers_flow_step
 
 
 def anchors(bundle, snippet, claim):
@@ -13,7 +13,7 @@ def anchors(bundle, snippet, claim):
         return []
     node = nodes[0 if claim.obligation == "source" else -1]
     if (
-        snippet.get("flow_step") != node.get("flow_step")
+        not covers_flow_step(snippet, node.get("flow_step"))
         or snippet.get("path") != node.get("path")
         or snippet.get("sha256") != node.get("sha256")
         or claim.line != node.get("line")

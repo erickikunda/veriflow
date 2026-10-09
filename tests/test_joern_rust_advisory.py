@@ -236,7 +236,15 @@ def test_eight_node_crossfile_path_is_retained(store, captured_source, tmp_path,
     )
     report = scan_report(store, "example", run, result["attempt_id"])
     b = build_bundle(store, result["attempt_id"], report["candidates"][0]["fingerprint"])
-    assert len(b["snippets"]) == 9 and b["status"] == "ready"
+    # Repeated regions are merged, so every one of the eight steps is still mapped by a snippet.
+    assert b["status"] == "ready" and b["locations_total"] == 9
+    covered = sorted(
+        step
+        for snippet in b["snippets"]
+        if snippet.get("flow_id") is not None
+        for step in (snippet.get("flow_steps_covered") or [snippet["flow_step"]])
+    )
+    assert covered == list(range(8)) and b["duplicate_locations_merged"] == 3
     assert assess_review_evidence(b, review_decision(b), RUST_POLICY)["passed"]
     # Larger paths still fail the explicit gate rather than dropping their intermediate nodes.
     b["joern_native_audit"]["nodes"].append(b["joern_native_audit"]["nodes"][-1])

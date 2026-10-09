@@ -16,6 +16,9 @@ class AdvisoryOptions:
     review_policy: str
     offset: int = 0
     limit: int = 1
+    unmetered: bool = False
+    allow_degraded_evidence: bool = False
+    envelope: object = None
 
     def __post_init__(self):
         require_policy(self.review_policy)
@@ -37,6 +40,8 @@ class AdvisoryOptions:
             )
 
     def validate_budget(self, store, run_id):
+        if self.unmetered:
+            return
         with store.transaction() as session:
             if session.get(TriageBudget, run_id) is None:
                 raise VeriFlowError("Configure the run triage budget before advisory scanning")
@@ -68,6 +73,9 @@ def run_advisory(store, repo_id, attempt_id, options):
             options.offset,
             options.limit,
             review_policy=options.review_policy,
+            unmetered=options.unmetered,
+            allow_degraded_evidence=options.allow_degraded_evidence,
+            envelope=options.envelope,
         )
     except VeriFlowError as exc:
         result = {"status": "halted", "reason": str(exc)}
@@ -78,13 +86,31 @@ def run_advisory(store, repo_id, attempt_id, options):
         "provider_invocations": adapter.calls,
         "live_model_calls": 0 if options.config.provider == "replay" else adapter.calls,
         "simulated": options.config.provider == "replay",
+        "metered": not options.unmetered,
+        "degraded_evidence_allowed": options.allow_degraded_evidence,
     }
 
 
-def load_advisory(config_path, review_policy, key, replay, offset=0, limit=1):
+def load_advisory(
+    config_path,
+    review_policy,
+    key,
+    replay,
+    offset=0,
+    limit=1,
+    unmetered=False,
+    allow_degraded_evidence=False,
+    envelope=None,
+):
     """CLI parsing only; never invokes a provider or sets a budget implicitly."""
     if config_path is None:
-        if any(v is not None for v in (review_policy, key, replay)) or offset != 0 or limit != 1:
+        if (
+            any(v is not None for v in (review_policy, key, replay))
+            or offset != 0
+            or limit != 1
+            or unmetered
+            or allow_degraded_evidence
+        ):
             raise VeriFlowError("Advisory options require --advisory-config")
         return None
     if review_policy is None or key is None:
@@ -98,4 +124,14 @@ def load_advisory(config_path, review_policy, key, replay, offset=0, limit=1):
         if replay is not None:
             raise VeriFlowError("A live advisory cannot use a replay fixture")
         adapter = live_adapter(config)
-    return AdvisoryOptions(config, adapter, key, review_policy, offset, limit)
+    return AdvisoryOptions(
+        config,
+        adapter,
+        key,
+        review_policy,
+        offset,
+        limit,
+        unmetered,
+        allow_degraded_evidence,
+        envelope,
+    )

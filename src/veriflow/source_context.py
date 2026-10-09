@@ -2,6 +2,8 @@
 
 import io
 
+DEFAULT_CONTEXT_BYTES = 16 * 1024
+
 
 def complete_context(bundle, snippet, suffix=".java"):
     """Join only consistent, snapshot-bound excerpts; never fill unseen lines."""
@@ -33,6 +35,27 @@ def complete_context(bundle, snippet, suffix=".java"):
     if set(lines) != set(range(1, total + 1)):
         return None
     source = "".join(lines[number] for number in range(1, total + 1))
-    if len(source.encode("utf-8")) > 16 * 1024:
+    # Track the envelope the bundle was built under; a second constant would silently
+    # refuse exactly the wider bundles an operator widened the envelope to allow.
+    limit = (bundle.get("envelope") or {}).get("max_source_bytes", DEFAULT_CONTEXT_BYTES)
+    if len(source.encode("utf-8")) > limit:
         return None
     return source
+
+
+def covered_steps(item):
+    """Every flow step one region stands for, after repeats are merged.
+
+    Accepts a materialized snippet or the location metadata it was built from; both carry
+    `flow_step` and, once merged, `flow_steps_covered`.
+    """
+    covered = item.get("flow_steps_covered")
+    if covered:
+        return sorted(covered)
+    step = item.get("flow_step")
+    return [] if step is None else [step]
+
+
+def covers_flow_step(item, step):
+    """One region may stand for several steps; every one of them still maps to it."""
+    return step in covered_steps(item)

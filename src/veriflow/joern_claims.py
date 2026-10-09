@@ -72,7 +72,7 @@ def query_digest(policy=POLICY):
     ).hexdigest()
 
 
-def native_audit(root, report, manifest, tree, sarif, result, *, policy=POLICY):
+def native_audit(root, report, manifest, tree, sarif, result, *, policy=POLICY, max_nodes=None):
     """Bind one selected SARIF path to pinned native output and source coordinates."""
     from veriflow.joern import MAX_SARIF_BYTES, VERSION, decode_output, to_sarif
 
@@ -135,7 +135,10 @@ def native_audit(root, report, manifest, tree, sarif, result, *, policy=POLICY):
         if len(matches) != 1:
             raise VeriFlowError("ambiguous_native_path")
         path = doc["paths"][matches[0]]
-        if not 2 <= len(path) <= (8 if policy == RUST_POLICY else 7):
+        # The audit tracks the same envelope the bundle is built under; a second constant here
+        # would cap the path before the widened envelope could ever be applied.
+        ceiling = max_nodes if max_nodes is not None else (8 if policy == RUST_POLICY else 7)
+        if not 2 <= len(path) <= ceiling:
             raise VeriFlowError("native_path_limit")
         records = {f.path: f for f in manifest.files}
         nodes = []
@@ -180,13 +183,13 @@ def native_audit(root, report, manifest, tree, sarif, result, *, policy=POLICY):
             "scope": "native/SARIF/source coordinate consistency, not semantic proof",
         }
     except (
-            VeriFlowError,
-            OSError,
-            ValueError,
-            KeyError,
-            IndexError,
-            TypeError,
-            UnicodeError,
+        VeriFlowError,
+        OSError,
+        ValueError,
+        KeyError,
+        IndexError,
+        TypeError,
+        UnicodeError,
     ) as exc:
         return {
             **audit,
@@ -238,13 +241,20 @@ def review_preflight(bundle, policy=POLICY):
             return report
     nodes = audit.get("nodes", [])
     retained = [s for s in bundle["snippets"] if s.get("flow_id") is not None]
-    if not 2 <= len(nodes) <= (8 if policy == RUST_POLICY else 7) or len(retained) != len(nodes):
+    # Track the envelope the bundle was actually built with instead of a second magic bound.
+    recorded = bundle.get("location_limit")
+    ceiling = (recorded - 1) if isinstance(recorded, int) else (8 if policy == RUST_POLICY else 7)
+    # A snippet may stand for several flow steps that bind to one region; every step still maps.
+    covered = {}
+    for snippet in retained:
+        for step in snippet.get("flow_steps_covered") or [snippet.get("flow_step")]:
+            if step in covered:
+                return report
+            covered[step] = snippet
+    if not 2 <= len(nodes) <= ceiling or sorted(covered) != list(range(len(nodes))):
         return report
     for step, node in enumerate(nodes):
-        matching = [s for s in retained if s.get("flow_step") == step]
-        if len(matching) != 1:
-            return report
-        snippet = matching[0]
+        snippet = covered[step]
         if (
             node.get("flow_step") != step
             or snippet.get("flow_id") != "F0T0"
@@ -270,7 +280,10 @@ def review_preflight(bundle, policy=POLICY):
                 "cpp": (".cpp", ".h", ".hpp"),
             }[language],
         )
-        if context is None or hashlib.sha256(context.encode()).hexdigest() != node["sha256"]:
+        if context is None:
+            # Name the reconstruction failure; a generic status sends operators hunting.
+            return {**report, "status": "incomplete_source_context"}
+        if hashlib.sha256(context.encode()).hexdigest() != node["sha256"]:
             return report
         lines = snippet["text"].splitlines()
         offset = node["line"] - snippet["excerpt_line"]
@@ -287,7 +300,10 @@ def review_preflight(bundle, policy=POLICY):
             )
         ):
             return report
-    for obligation, snippet in [("source", retained[0]), ("sink", retained[-1])]:
+    # Endpoints bind to real node steps, so a snippet standing for several steps still anchors.
+    endpoints = [("source", 0), ("sink", len(nodes) - 1)]
+    for obligation, endpoint_step in endpoints:
+        snippet = {**covered[endpoint_step], "flow_step": endpoint_step}
         line = snippet["line"]
         quote = snippet["text"].splitlines()[line - snippet["excerpt_line"]].strip()
         anchor = SimpleNamespace(obligation=obligation, line=line, end_line=line, quote=quote)

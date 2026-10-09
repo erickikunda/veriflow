@@ -50,6 +50,31 @@ def bounded(session, query):
     return rows
 
 
+def advisory_reductions(history):
+    """Count every advisory call that saw less than the gates normally require."""
+    entries = [entry for records in history.values() for entry in records]
+    windowed = [entry for entry in entries if entry.get("window")]
+    return {
+        "advisory_calls": len(entries),
+        "unmetered_calls": sum(1 for entry in entries if entry.get("metered") is False),
+        "degraded_evidence_calls": sum(1 for entry in entries if entry.get("evidence_degraded")),
+        "windowed_calls": len(windowed),
+        "windowed_candidates": sum(
+            1 for records in history.values() if any(entry.get("window") for entry in records)
+        ),
+        "widened_envelope_calls": sum(
+            1 for entry in entries if (entry.get("max_locations") or 8) > 8
+        ),
+        "partial_bundle_calls": sum(
+            1 for entry in entries if entry.get("bundle_status") == "partial"
+        ),
+        "scope": (
+            "Advisory calls that saw reduced evidence; a reduced view never confirms, "
+            "dismisses or completes a candidate"
+        ),
+    }
+
+
 def projection(session, repo_id, run_id, attempt_id):
     run = selected_run(session, repo_id, run_id)
     latest = selected_run(session, repo_id)
@@ -100,18 +125,25 @@ def projection(session, repo_id, run_id, attempt_id):
         if attempt
         else []
     )
-    bundle_candidates = (
-        dict(
-            session.execute(
-                select(EvidenceBundle.id, EvidenceBundle.candidate_id)
-                .join(Candidate, EvidenceBundle.candidate_id == Candidate.id)
-                .join(TriageCall, TriageCall.bundle_id == EvidenceBundle.id)
-                .where(Candidate.attempt_id == attempt.id, TriageCall.run_id == run.id)
-            ).all()
-        )
+    bundle_rows = (
+        session.execute(
+            select(EvidenceBundle.id, EvidenceBundle.candidate_id, EvidenceBundle.content)
+            .join(Candidate, EvidenceBundle.candidate_id == Candidate.id)
+            .join(TriageCall, TriageCall.bundle_id == EvidenceBundle.id)
+            .where(Candidate.attempt_id == attempt.id, TriageCall.run_id == run.id)
+        ).all()
         if attempt
-        else {}
+        else []
     )
+    bundle_candidates = {row[0]: row[1] for row in bundle_rows}
+    bundle_scope = {
+        row[0]: {
+            "window": (row[2] or {}).get("window"),
+            "bundle_status": (row[2] or {}).get("status"),
+            "max_locations": ((row[2] or {}).get("envelope") or {}).get("max_locations"),
+        }
+        for row in bundle_rows
+    }
     history = {}
     for call in calls:
         result = call.result
@@ -134,6 +166,10 @@ def projection(session, repo_id, run_id, attempt_id):
             "request_sha256": call.request_sha256,
             "usage": result.get("usage"),
             "accounted_micro_usd": call.charged_micro_usd,
+            # Every bypass stays on the record; a reduced view must never read as a full one.
+            "metered": result.get("metered", True),
+            "evidence_degraded": result.get("evidence_degraded") or [],
+            **bundle_scope.get(call.bundle_id, {}),
         }
         if result.get("review_policy") is not None:
             entry.update(review_policy=result["review_policy"], engine_id=result.get("engine_id"))
@@ -239,6 +275,8 @@ def projection(session, repo_id, run_id, attempt_id):
         "llm_candidate_count": scan.get("llm_candidate_count", 0),
         "candidate_rows": len(rows),
         "operator_review_counts": dict(Counter(row["operator_review_state"] for row in rows)),
+        # Named at the top of the report so a reduced run never reads as a complete one.
+        "advisory_reductions": advisory_reductions(history),
         "verified_finding_count": None,
         "security_verdict": "not_adjudicated",
         "coverage_verified": False,
@@ -548,6 +586,24 @@ def render_report(report, format="json"):
         f"Candidates: {report['candidate_count']} | Coverage verified: false | "
         f"Static review readiness: {readiness}"
     )
+    reductions = report.get("advisory_reductions") or {}
+    if any(
+        reductions.get(field)
+        for field in (
+            "unmetered_calls",
+            "degraded_evidence_calls",
+            "windowed_calls",
+            "widened_envelope_calls",
+            "partial_bundle_calls",
+        )
+    ):
+        summary += (
+            f" | Reduced advisory evidence: {reductions['degraded_evidence_calls']} degraded, "
+            f"{reductions['windowed_calls']} windowed, "
+            f"{reductions['partial_bundle_calls']} partial, "
+            f"{reductions['widened_envelope_calls']} widened, "
+            f"{reductions['unmetered_calls']} unmetered"
+        )
     headings = [
         "Rule",
         "Location",

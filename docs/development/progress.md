@@ -1,4 +1,21 @@
-# Implementation progress through Slice 158
+# Implementation progress through Slice 159
+
+## Slice 159 — Fair evidence allocation, windowed triage and a tunable envelope
+
+Duplicate flow regions merge before the location budget is spent, truncation retains the flow head
+and tail instead of an arbitrary prefix, source bytes are allocated max-min fair so a large
+intermediate region cannot starve the endpoints, and the envelope is resolved per profile from CLI
+flags, environment variables or an operator-authored file rather than hardcoded. `triage-windows`
+walks a flow longer than the envelope in overlapping spans, advisory-only by construction, and
+reports where those spans contradict each other. `--unmetered` bypasses every budget check while
+still accounting, and `--allow-degraded-evidence` sends incomplete bundles to the model without
+ever marking the result verified. Published reports now name every reduction through
+`advisory_reductions`, so an unmetered windowed run cannot read as an ordinary gated one. Nine
+size bounds outside the envelope were tracking it incorrectly or not at all, including a native
+audit cap that made every widened envelope inert for Joern policies. `BUILDER_VERSION` moves to
+15, so rebuilt bundles take new identities while stored ones stay valid. See
+[Slice 159](slice-159.md). Next run the new `joern-rust-wide` container suite; until it passes,
+the twelve-node gate coverage rests on a hand-written native document.
 
 ## Slice 158 — Second review pass on the SBOM/OSV chain
 

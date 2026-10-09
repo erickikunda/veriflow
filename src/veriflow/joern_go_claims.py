@@ -1,7 +1,7 @@
 """Go HTTP/shell endpoint claim binding; generated intermediate code is never an anchor."""
 
 from veriflow.go_http_parser import parse_isolated
-from veriflow.source_context import complete_context
+from veriflow.source_context import complete_context, covers_flow_step
 
 
 def anchors(bundle, snippet, claim):
@@ -14,7 +14,7 @@ def anchors(bundle, snippet, claim):
     if (
         snippet.get("path") != node.get("path")
         or snippet.get("sha256") != node.get("sha256")
-        or snippet.get("flow_step") != node.get("flow_step")
+        or not covers_flow_step(snippet, node.get("flow_step"))
         or claim.line != node.get("line")
         or claim.end_line != claim.line
         or not node.get("code")

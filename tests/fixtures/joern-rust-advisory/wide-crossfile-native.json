@@ -1,0 +1,104 @@
+{
+  "schema_version": "2",
+  "engine_id": "joern",
+  "rule_id": "veriflow/joern-rust-env-shell-v1",
+  "represented_rust_files": [
+    "main.rs",
+    "repository.rs",
+    "service.rs",
+    "stage_a.rs",
+    "stage_b.rs"
+  ],
+  "source_count": 1,
+  "sink_count": 1,
+  "method_names": [
+    "<global>",
+    "arg",
+    "dispatch",
+    "execute",
+    "forward",
+    "main",
+    "new",
+    "relay",
+    "status",
+    "unwrap",
+    "var"
+  ],
+  "call_names": [
+    "arg",
+    "dispatch",
+    "execute",
+    "forward",
+    "new",
+    "relay",
+    "status",
+    "unwrap",
+    "var"
+  ],
+  "flow_count": 1,
+  "paths": [
+    [
+      {
+        "code": "std::env::var(\"TRACEPROOF_COMMAND\")",
+        "file": "main.rs",
+        "line": 6
+      },
+      {
+        "code": "std::env::var(\"TRACEPROOF_COMMAND\").unwrap()",
+        "file": "main.rs",
+        "line": 6
+      },
+      {
+        "code": "value",
+        "file": "main.rs",
+        "line": 6
+      },
+      {
+        "code": "value",
+        "file": "main.rs",
+        "line": 7
+      },
+      {
+        "code": "value: String",
+        "file": "service.rs",
+        "line": 1
+      },
+      {
+        "code": "value",
+        "file": "service.rs",
+        "line": 2
+      },
+      {
+        "code": "value: String",
+        "file": "stage_a.rs",
+        "line": 1
+      },
+      {
+        "code": "value",
+        "file": "stage_a.rs",
+        "line": 2
+      },
+      {
+        "code": "value: String",
+        "file": "stage_b.rs",
+        "line": 1
+      },
+      {
+        "code": "value",
+        "file": "stage_b.rs",
+        "line": 2
+      },
+      {
+        "code": "value: String",
+        "file": "repository.rs",
+        "line": 21
+      },
+      {
+        "code": "value",
+        "file": "repository.rs",
+        "line": 22
+      }
+    ]
+  ],
+  "qualification": "fixture_feasibility_only"
+}

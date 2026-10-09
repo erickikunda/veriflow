@@ -163,9 +163,7 @@ def rule_draft_status_command(ctx: typer.Context, draft_id: str):
 
 
 @app.command("approve-rule-draft")
-def approve_rule_draft_command(
-    ctx: typer.Context, draft_id: str, approval: Path, key: str
-):
+def approve_rule_draft_command(ctx: typer.Context, draft_id: str, approval: Path, key: str):
     """Approve one tested draft into the next immutable registry version."""
     from veriflow.rule_registry import approve_rule_draft, read_approval_request
 
@@ -598,6 +596,19 @@ def scan_run_command(
     replay: Path | None = None,
     advisory_offset: Annotated[int, typer.Option(min=0)] = 0,
     advisory_limit: Annotated[int, typer.Option(min=1, max=100)] = 1,
+    unmetered: Annotated[
+        bool, typer.Option(help="Bypass every budget check; charges are still recorded")
+    ] = False,
+    allow_degraded_evidence: Annotated[
+        bool, typer.Option(help="Send incomplete bundles anyway; results stay unverified")
+    ] = False,
+    envelope_config: Path | None = None,
+    max_locations: Annotated[int | None, typer.Option(min=1, max=64)] = None,
+    max_source_bytes: Annotated[int | None, typer.Option(min=1024, max=1048576)] = None,
+    max_bundle_bytes: Annotated[int | None, typer.Option(min=2048, max=2097152)] = None,
+    max_elided_index: Annotated[int | None, typer.Option(min=0, max=512)] = None,
+    context_lines: Annotated[int | None, typer.Option(min=0, max=40)] = None,
+    max_region_lines: Annotated[int | None, typer.Option(min=1, max=400)] = None,
     llm_discovery: bool = False,
     llm_discovery_config: Path | None = None,
     llm_discovery_replay: Path | None = None,
@@ -605,6 +616,7 @@ def scan_run_command(
     llm_discovery_max_excerpts: Annotated[int, typer.Option(min=1, max=12)] = 8,
 ):
     """Scan and publish, with optional replay-backed additive LLM discovery."""
+    from veriflow.envelope import resolve as resolve_envelope
     from veriflow.llm_discovery import load_options
     from veriflow.pipeline import scan_run
     from veriflow.scan_advisory import load_advisory
@@ -636,6 +648,19 @@ def scan_run_command(
                 replay,
                 advisory_offset,
                 advisory_limit,
+                unmetered,
+                allow_degraded_evidence,
+                resolve_envelope(
+                    envelope_config,
+                    {
+                        "max_locations": max_locations,
+                        "max_source_bytes": max_source_bytes,
+                        "max_bundle_bytes": max_bundle_bytes,
+                        "max_elided_index": max_elided_index,
+                        "context_lines": context_lines,
+                        "max_region_lines": max_region_lines,
+                    },
+                ),
             ),
             llm_discovery=load_options(
                 llm_discovery,
@@ -677,9 +702,23 @@ def scan_import_command(
     replay: Path | None = None,
     advisory_offset: Annotated[int, typer.Option(min=0)] = 0,
     advisory_limit: Annotated[int, typer.Option(min=1, max=100)] = 1,
+    unmetered: Annotated[
+        bool, typer.Option(help="Bypass every budget check; charges are still recorded")
+    ] = False,
+    allow_degraded_evidence: Annotated[
+        bool, typer.Option(help="Send incomplete bundles anyway; results stay unverified")
+    ] = False,
+    envelope_config: Path | None = None,
+    max_locations: Annotated[int | None, typer.Option(min=1, max=64)] = None,
+    max_source_bytes: Annotated[int | None, typer.Option(min=1024, max=1048576)] = None,
+    max_bundle_bytes: Annotated[int | None, typer.Option(min=2048, max=2097152)] = None,
+    max_elided_index: Annotated[int | None, typer.Option(min=0, max=512)] = None,
+    context_lines: Annotated[int | None, typer.Option(min=0, max=40)] = None,
+    max_region_lines: Annotated[int | None, typer.Option(min=1, max=400)] = None,
 ):
     """Sequentially scan selected import rows; existing query attempts are skipped by default."""
     from veriflow.batch_scan import scan_import
+    from veriflow.envelope import resolve as resolve_envelope
     from veriflow.scan_advisory import load_advisory
 
     perform(
@@ -712,6 +751,19 @@ def scan_import_command(
                 replay,
                 advisory_offset,
                 advisory_limit,
+                unmetered,
+                allow_degraded_evidence,
+                resolve_envelope(
+                    envelope_config,
+                    {
+                        "max_locations": max_locations,
+                        "max_source_bytes": max_source_bytes,
+                        "max_bundle_bytes": max_bundle_bytes,
+                        "max_elided_index": max_elided_index,
+                        "context_lines": context_lines,
+                        "max_region_lines": max_region_lines,
+                    },
+                ),
             ),
         )
     )
@@ -813,11 +865,40 @@ def discovery_report_command(
 
 
 @app.command("build-bundle")
-def bundle_build(ctx: typer.Context, attempt_id: str, fingerprint: str):
+def bundle_build(
+    ctx: typer.Context,
+    attempt_id: str,
+    fingerprint: str,
+    envelope_config: Path | None = None,
+    max_locations: Annotated[int | None, typer.Option(min=1, max=64)] = None,
+    max_source_bytes: Annotated[int | None, typer.Option(min=1024, max=1048576)] = None,
+    max_bundle_bytes: Annotated[int | None, typer.Option(min=2048, max=2097152)] = None,
+    max_elided_index: Annotated[int | None, typer.Option(min=0, max=512)] = None,
+    context_lines: Annotated[int | None, typer.Option(min=0, max=40)] = None,
+    max_region_lines: Annotated[int | None, typer.Option(min=1, max=400)] = None,
+):
     """Materialize bounded primary/flow evidence for one static candidate."""
     from veriflow.bundles import build_bundle
+    from veriflow.envelope import resolve as resolve_envelope
 
-    perform(lambda: build_bundle(ctx.obj, attempt_id, fingerprint))
+    perform(
+        lambda: build_bundle(
+            ctx.obj,
+            attempt_id,
+            fingerprint,
+            resolve_envelope(
+                envelope_config,
+                {
+                    "max_locations": max_locations,
+                    "max_source_bytes": max_source_bytes,
+                    "max_bundle_bytes": max_bundle_bytes,
+                    "max_elided_index": max_elided_index,
+                    "context_lines": context_lines,
+                    "max_region_lines": max_region_lines,
+                },
+            ),
+        )
+    )
 
 
 @app.command("bundle-status")
@@ -896,6 +977,12 @@ def triage_command(
     key: str,
     replay: Path | None = None,
     review_policy: str | None = None,
+    unmetered: Annotated[
+        bool, typer.Option(help="Bypass every budget check; charges are still recorded")
+    ] = False,
+    allow_degraded_evidence: Annotated[
+        bool, typer.Option(help="Send incomplete bundles anyway; results stay unverified")
+    ] = False,
 ):
     """Triage one bundle; replay is offline and live providers require explicit opt-in."""
     from veriflow.models import ReplayAdapter, live_adapter, read_config
@@ -911,7 +998,16 @@ def triage_command(
             if replay is not None:
                 raise VeriFlowError("A live policy cannot use a replay fixture")
             adapter = live_adapter(policy)
-        return triage(ctx.obj, bundle_id, policy, adapter, key, review_policy=review_policy)
+        return triage(
+            ctx.obj,
+            bundle_id,
+            policy,
+            adapter,
+            key,
+            review_policy=review_policy,
+            unmetered=unmetered,
+            allow_degraded_evidence=allow_degraded_evidence,
+        )
 
     perform(operation)
 
@@ -927,12 +1023,37 @@ def triage_attempt_command(
     review_policy: str | None = None,
     offset: Annotated[int, typer.Option(min=0)] = 0,
     limit: Annotated[int, typer.Option(min=1, max=100)] = 1,
+    unmetered: Annotated[
+        bool, typer.Option(help="Bypass every budget check; charges are still recorded")
+    ] = False,
+    allow_degraded_evidence: Annotated[
+        bool, typer.Option(help="Send incomplete bundles anyway; results stay unverified")
+    ] = False,
+    envelope_config: Path | None = None,
+    max_locations: Annotated[int | None, typer.Option(min=1, max=64)] = None,
+    max_source_bytes: Annotated[int | None, typer.Option(min=1024, max=1048576)] = None,
+    max_bundle_bytes: Annotated[int | None, typer.Option(min=2048, max=2097152)] = None,
+    max_elided_index: Annotated[int | None, typer.Option(min=0, max=512)] = None,
+    context_lines: Annotated[int | None, typer.Option(min=0, max=40)] = None,
+    max_region_lines: Annotated[int | None, typer.Option(min=1, max=400)] = None,
 ):
     """Triage a bounded candidate page with per-run budgets and stable request keys."""
     from veriflow.batch_triage import triage_attempt
+    from veriflow.envelope import resolve as resolve_envelope
     from veriflow.models import ReplayAdapter, live_adapter, read_config
 
     def operation():
+        envelope = resolve_envelope(
+            envelope_config,
+            {
+                "max_locations": max_locations,
+                "max_source_bytes": max_source_bytes,
+                "max_bundle_bytes": max_bundle_bytes,
+                "max_elided_index": max_elided_index,
+                "context_lines": context_lines,
+                "max_region_lines": max_region_lines,
+            },
+        )
         policy = read_config(config)
         if policy.provider == "replay":
             if replay is None:
@@ -952,6 +1073,78 @@ def triage_attempt_command(
             offset,
             limit,
             review_policy=review_policy,
+            unmetered=unmetered,
+            allow_degraded_evidence=allow_degraded_evidence,
+            envelope=envelope,
+        )
+
+    perform(operation)
+
+
+@app.command("triage-windows")
+def triage_windows_command(
+    ctx: typer.Context,
+    repo_id: str,
+    attempt_id: str,
+    config: Path,
+    key: str,
+    replay: Path | None = None,
+    review_policy: str | None = None,
+    offset: Annotated[int, typer.Option(min=0)] = 0,
+    limit: Annotated[int, typer.Option(min=1, max=100)] = 1,
+    overlap: Annotated[int, typer.Option(min=0, max=32)] = 1,
+    max_windows: Annotated[int, typer.Option(min=1, max=32)] = 8,
+    unmetered: Annotated[
+        bool, typer.Option(help="Bypass every budget check; charges are still recorded")
+    ] = False,
+    envelope_config: Path | None = None,
+    max_locations: Annotated[int | None, typer.Option(min=1, max=64)] = None,
+    max_source_bytes: Annotated[int | None, typer.Option(min=1024, max=1048576)] = None,
+    max_bundle_bytes: Annotated[int | None, typer.Option(min=2048, max=2097152)] = None,
+    max_elided_index: Annotated[int | None, typer.Option(min=0, max=512)] = None,
+    context_lines: Annotated[int | None, typer.Option(min=0, max=40)] = None,
+    max_region_lines: Annotated[int | None, typer.Option(min=1, max=400)] = None,
+):
+    """Walk a long flow in overlapping windows; partial views stay advisory and unverified."""
+    from veriflow.envelope import resolve as resolve_envelope
+    from veriflow.models import ReplayAdapter, live_adapter, read_config
+    from veriflow.windows import triage_windows
+
+    def operation():
+        envelope = resolve_envelope(
+            envelope_config,
+            {
+                "max_locations": max_locations,
+                "max_source_bytes": max_source_bytes,
+                "max_bundle_bytes": max_bundle_bytes,
+                "max_elided_index": max_elided_index,
+                "context_lines": context_lines,
+                "max_region_lines": max_region_lines,
+            },
+        )
+        policy = read_config(config)
+        if policy.provider == "replay":
+            if replay is None:
+                raise VeriFlowError("Replay policy requires --replay RESPONSE_JSON")
+            adapter = ReplayAdapter(replay)
+        else:
+            if replay is not None:
+                raise VeriFlowError("A live policy cannot use a replay fixture")
+            adapter = live_adapter(policy)
+        return triage_windows(
+            ctx.obj,
+            repo_id,
+            attempt_id,
+            policy,
+            adapter,
+            key,
+            offset,
+            limit,
+            review_policy=review_policy,
+            unmetered=unmetered,
+            envelope=envelope,
+            overlap=overlap,
+            max_windows=max_windows,
         )
 
     perform(operation)

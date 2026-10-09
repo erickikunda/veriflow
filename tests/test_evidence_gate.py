@@ -17,18 +17,22 @@ from veriflow.models import Decision, Reply, Usage, request_body
 from veriflow.persistence import EvidenceBundle, TriageCall
 from veriflow.triage import set_budget, triage
 
-SOURCE = "def f():\n    return eval(request.args['expr'])\n"
-QUOTE = "return eval(request.args['expr'])"
+SOURCE = "def f():\n    x = request.args['expr']\n    return eval(x)\n"
+QUOTE = "return eval(x)"
+SOURCE_QUOTE = "x = request.args['expr']"
+# E2 is the taint source step; E1/E3 sit on the sink line.
+CITED = {"E2": (2, SOURCE_QUOTE)}
 
 
 def claim(obligation, evidence_id, **changes):
+    line, quote = CITED.get(evidence_id, (3, QUOTE))
     return EvidenceClaim(
         obligation=obligation,
         evidence_id=evidence_id,
         **{
-            "line": 2,
-            "end_line": 2,
-            "quote": QUOTE,
+            "line": line,
+            "end_line": line,
+            "quote": quote,
             "assessment": "unknown" if obligation == "guard" else "present",
             "explanation": "Inspect the cited source and retained flow.",
             **changes,
@@ -56,7 +60,7 @@ def decision(**changes):
 
 @pytest.fixture
 def bundle(store, evidence_fixture):
-    _, attempt, fingerprint, _ = evidence_fixture(flow_count=2, source=SOURCE)
+    _, attempt, fingerprint, _ = evidence_fixture(flow_count=2, source=SOURCE, distinct_flow=True)
     return build_bundle(store, attempt, fingerprint)
 
 
@@ -87,17 +91,13 @@ def test_invalid_claims_fail_closed(bundle, changes, reason):
     assert not gate["passed"] and gate["checks"][0]["reason"] == reason
 
 
-@pytest.mark.parametrize(
-    "text",
-    [
-        "# return eval(request.args['expr'])",
-        "\"return eval(request.args['expr'])\"",
-    ],
-)
-def test_comments_and_strings_cannot_supply_source_or_sink(bundle, text):
+@pytest.mark.parametrize("wrap", ["# {}", '"{}"'])
+def test_comments_and_strings_cannot_supply_source_or_sink(bundle, wrap):
     changed = copy.deepcopy(bundle)
     for snippet in changed["snippets"]:
-        snippet["text"] = "def f():\n    " + text + "\n"
+        snippet["text"] = (
+            "def f():\n    " + wrap.format(SOURCE_QUOTE) + "\n    " + wrap.format(QUOTE) + "\n"
+        )
     result = assess_evidence(changed, decision())
     assert not result["passed"]
     assert any(item["reason"] == "supported_syntax_not_in_quote" for item in result["checks"])
@@ -130,13 +130,18 @@ def test_negative_suggestion_requires_present_guard_and_counterevidence(bundle):
 
 @pytest.mark.parametrize("shell,passed", [(True, True), (False, False)])
 def test_command_sink_checks_shell_flag(store, evidence_fixture, shell, passed):
-    quote = f"return subprocess.run(request.args['cmd'], shell={shell})"
+    sink = f"return subprocess.run(x, shell={shell})"
     _, attempt, fingerprint, _ = evidence_fixture(
-        flow_count=2, rule_id="py/command-line-injection", source=f"def f():\n    {quote}\n"
+        flow_count=2,
+        rule_id="py/command-line-injection",
+        source=f"def f():\n    {SOURCE_QUOTE}\n    {sink}\n",
+        distinct_flow=True,
     )
     bundle = build_bundle(store, attempt, fingerprint)
     claims = [
-        EvidenceClaim.model_validate({**item.model_dump(), "quote": quote})
+        EvidenceClaim.model_validate(
+            {**item.model_dump(), **({"quote": sink} if item.evidence_id != "E2" else {})}
+        )
         for item in decision().claims
     ]
     assert assess_evidence(bundle, decision(claims=claims))["passed"] is passed
@@ -194,17 +199,17 @@ def test_expansion_depth_and_source_budget(store, evidence_fixture):
         expand_bundle(
             store,
             parent["bundle_id"],
-            [ExpansionItem(path="app.py", line=29, end_line=29, reason="large")],
+            [ExpansionItem(path="app.py", line=30, end_line=30, reason="large")],
         )
     child = expand_bundle(
         store,
         parent["bundle_id"],
-        [ExpansionItem(path="app.py", line=11, end_line=11, reason="one")],
+        [ExpansionItem(path="app.py", line=12, end_line=12, reason="one")],
     )
     grandchild = expand_bundle(
         store,
         child["bundle_id"],
-        [ExpansionItem(path="app.py", line=20, end_line=20, reason="two")],
+        [ExpansionItem(path="app.py", line=21, end_line=21, reason="two")],
     )
     with pytest.raises(VeriFlowError, match="depth"):
         expand_bundle(
@@ -216,13 +221,13 @@ def test_expansion_depth_and_source_budget(store, evidence_fixture):
 
 def test_expansion_preserves_gaps(store, evidence_fixture):
     _, attempt, fingerprint, _ = evidence_fixture(
-        flow_count=20, source=SOURCE + "\n" * 8 + "assert allowed\n"
+        flow_count=20, source=SOURCE + "\n" * 8 + "assert allowed\n", distinct_flow=True
     )
     parent = build_bundle(store, attempt, fingerprint)
     child = expand_bundle(
         store,
         parent["bundle_id"],
-        [ExpansionItem(path="app.py", line=11, end_line=11, reason="guard")],
+        [ExpansionItem(path="app.py", line=12, end_line=12, reason="guard")],
     )
     assert child["status"] == "partial" and child["gaps"] == parent["gaps"]
 

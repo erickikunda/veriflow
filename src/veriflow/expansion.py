@@ -92,9 +92,13 @@ def expand_bundle(store, parent_id, requests):
             )
         if len(snippets) == len(parent["snippets"]):
             return parent
+        # Expansion honours the envelope the parent was built under, not a second constant.
+        bounds = parent.get("envelope") or {}
+        source_limit = bounds.get("max_source_bytes", MAX_SOURCE_BYTES)
+        snippet_limit = max(MAX_SNIPPETS, bounds.get("max_locations", 0) * 2)
         if (
-            len(snippets) > MAX_SNIPPETS
-            or sum(len(item["text"].encode()) for item in snippets) > MAX_SOURCE_BYTES
+            len(snippets) > snippet_limit
+            or sum(len(item["text"].encode()) for item in snippets) > source_limit
         ):
             raise VeriFlowError("Expanded evidence exceeds the snippet/source budget")
         content = {key: value for key, value in parent.items() if key != "bundle_id"}
@@ -106,8 +110,8 @@ def expand_bundle(store, parent_id, requests):
             snippets=snippets,
         )
         # Context cannot silently erase extraction/coverage gaps inherited from the parent.
-        if len(canonical(content)) > MAX_BUNDLE_BYTES:
-            raise VeriFlowError("Expanded evidence exceeds the 32 KiB envelope budget")
+        if len(canonical(content)) > bounds.get("max_bundle_bytes", MAX_BUNDLE_BYTES):
+            raise VeriFlowError("Expanded evidence exceeds the configured envelope budget")
         verified_source(store, parent["run_id"])
         identity = hashlib.sha256(canonical(content)).hexdigest()
         with store.transaction() as session:

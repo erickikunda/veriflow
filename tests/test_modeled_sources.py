@@ -61,6 +61,45 @@ def fixture(source=SOURCE):
     )
 
 
+def merged_fixture():
+    """The same trace after repeated regions collapse, as the bundler now emits it."""
+    bundle, _ = fixture()
+    first, second = bundle["snippets"][0], bundle["snippets"][2]
+    bundle["snippets"] = [
+        {**first, "id": "E1", "flow_steps_covered": [0, 1]},
+        {**second, "id": "E2", "flow_steps_covered": [2, 3]},
+    ]
+    quote = SOURCE.splitlines(keepends=True)[4].strip()
+    claims = [
+        {
+            "obligation": obligation,
+            "evidence_id": "E2",
+            "line": 5,
+            "end_line": 5,
+            "quote": quote,
+            "assessment": "unknown" if obligation == "guard" else "present",
+            "explanation": "Review the retained evidence.",
+        }
+        for obligation in ("source", "sink", "flow", "guard")
+    ]
+    return bundle, Decision(
+        verdict="needs_review",
+        rationale="Review injection",
+        evidence_ids=["E1", "E2"],
+        counterevidence="Unknown",
+        claims=claims,
+    )
+
+
+def test_merged_flow_steps_keep_the_flask_import_prefix():
+    bundle, decision = merged_fixture()
+    gate = assess_evidence(bundle, decision)
+    assert gate["passed"], gate
+    # The import prefix is still proven even though two steps share one snippet.
+    assert gate["source_mappings"][0]["kind"] == "flask_request_import"
+    assert "source_to_sink_recorded_flow" not in gate["missing"]
+
+
 def test_flask_import_prefix_supports_advisory_review():
     bundle, decision = fixture()
     gate = assess_evidence(bundle, decision)
