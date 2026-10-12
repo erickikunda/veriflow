@@ -512,10 +512,13 @@ def csv_cell(value):
     )
 
 
+MARKDOWN_ESCAPES = {character: f"&#{ord(character)};" for character in "\\`*_{}[]()#+-.!|&<>\"'"}
+
+
 def markdown_cell(value):
-    text = html.escape("unknown" if value is None else str(value))
-    for character in "\\`*_{}[]()#+-.!|":
-        text = text.replace(character, f"&#{ord(character)};")
+    # One pass: escaping sequentially re-escaped the '#' inside earlier entities.
+    text = "unknown" if value is None else str(value)
+    text = "".join(MARKDOWN_ESCAPES.get(character, character) for character in text)
     return text.replace("\n", " ").replace("\r", " ")
 
 

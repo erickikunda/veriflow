@@ -80,6 +80,7 @@ def scan_run(
     requested = language
     language = selected_language(manifest, requested)
     if advisory is not None:
+        advisory = advisory.for_profile(language, discovery_profile)
         advisory.validate_scope(language, discovery_profile)
     if language == "csharp" and repair_dir is None:
         raise VeriFlowError("C# Joern requires --joern-repair-dir")

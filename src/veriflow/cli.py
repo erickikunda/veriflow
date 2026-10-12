@@ -668,9 +668,141 @@ def scan_run_command(
                 llm_discovery_key,
                 llm_discovery_max_excerpts,
                 llm_discovery_config,
+                unmetered=unmetered,
             ),
         )
     )
+
+
+@app.command("run-pipeline-from-csv")
+def run_pipeline_from_csv_command(
+    ctx: typer.Context,
+    manifest: Path,
+    input_root: Annotated[
+        Path, typer.Option(help="Only archives under this absolute root are allowed")
+    ],
+    advisory_config: Annotated[Path, typer.Option(help="Model config for advisory triage")],
+    joern_home: Annotated[Path, typer.Option(help="Joern installation directory")],
+    output_dir: Annotated[
+        Path | None,
+        typer.Option(help="Logs and reports; default work/pipeline/<UTC timestamp>"),
+    ] = None,
+    joern_repair_dir: Path | None = None,
+    rust_home: Path | None = None,
+    replay: Annotated[Path | None, typer.Option(help="Replay response for a replay config")] = None,
+    unmetered: Annotated[
+        bool, typer.Option(help="Bypass every budget check; charges are still recorded")
+    ] = True,
+    allow_degraded_evidence: Annotated[
+        bool, typer.Option(help="Send incomplete or ungated bundles; results stay unverified")
+    ] = True,
+    budget_micro_usd: Annotated[
+        int | None, typer.Option(min=0, help="Per-run budget; required with --no-unmetered")
+    ] = None,
+    max_requests: Annotated[int | None, typer.Option(min=0, max=10000)] = None,
+    rescan_empty: Annotated[
+        bool, typer.Option(help="Scan profiles again whose last attempt found zero candidates")
+    ] = False,
+    reimport: Annotated[
+        bool, typer.Option(help="Import again rows whose archive changed or whose import failed")
+    ] = False,
+    force_reimport: Annotated[
+        bool, typer.Option(help="Import every row again, even unchanged ones (full rescan)")
+    ] = False,
+    retry_unknown: Annotated[
+        bool, typer.Option(help="Send again calls stored as unknown; the provider may charge twice")
+    ] = False,
+    ungated_triage: Annotated[
+        bool, typer.Option(help="Send candidates of profiles without a reviewed gate to the model")
+    ] = True,
+    llm_discovery: Annotated[
+        bool, typer.Option(help="Also run additive LLM discovery for each detected language")
+    ] = False,
+    llm_discovery_config: Annotated[
+        Path | None, typer.Option(help="Discovery model config; default --advisory-config")
+    ] = None,
+    llm_discovery_replay: Path | None = None,
+    llm_discovery_max_excerpts: Annotated[int, typer.Option(min=1, max=12)] = 8,
+    extraction_timeout: Annotated[int, typer.Option(min=1, max=3600)] = 300,
+    query_timeout: Annotated[int, typer.Option(min=1, max=3600)] = 600,
+    check_connectivity: Annotated[
+        bool, typer.Option(help="Probe live provider endpoints before any scan work")
+    ] = True,
+    envelope_config: Path | None = None,
+    max_locations: Annotated[int | None, typer.Option(min=1, max=64)] = None,
+    max_source_bytes: Annotated[int | None, typer.Option(min=1024, max=1048576)] = None,
+    max_bundle_bytes: Annotated[int | None, typer.Option(min=2048, max=2097152)] = None,
+    max_elided_index: Annotated[int | None, typer.Option(min=0, max=512)] = None,
+    context_lines: Annotated[int | None, typer.Option(min=0, max=40)] = None,
+    max_region_lines: Annotated[int | None, typer.Option(min=1, max=400)] = None,
+):
+    """Import, scan all Joern profiles, triage every candidate and export reports per CSV row."""
+    from datetime import UTC, datetime
+
+    from veriflow.csv_pipeline import PipelineOptions, run_pipeline
+    from veriflow.envelope import resolve as resolve_envelope
+    from veriflow.llm_discovery import load_options
+    from veriflow.models import ReplayAdapter, live_adapter, read_config
+
+    outcome = {}
+
+    def operation():
+        if unmetered and (budget_micro_usd is not None or max_requests is not None):
+            raise VeriFlowError("Budget options require --no-unmetered")
+        config = read_config(advisory_config)
+        if config.provider == "replay":
+            if replay is None:
+                raise VeriFlowError("Replay policy requires --replay RESPONSE_JSON")
+            adapter = ReplayAdapter(replay)
+        else:
+            if replay is not None:
+                raise VeriFlowError("A live policy cannot use a replay fixture")
+            adapter = live_adapter(config)
+        options = PipelineOptions(
+            config=config,
+            adapter=adapter,
+            joern_home=joern_home,
+            joern_repair_dir=joern_repair_dir,
+            rust_home=rust_home,
+            unmetered=unmetered,
+            allow_degraded_evidence=allow_degraded_evidence,
+            rescan_empty=rescan_empty,
+            reimport=reimport,
+            force_reimport=force_reimport,
+            retry_unknown=retry_unknown,
+            ungated_triage=ungated_triage,
+            discovery=load_options(
+                llm_discovery,
+                llm_discovery_replay,
+                "pipeline" if llm_discovery else None,
+                llm_discovery_max_excerpts,
+                (llm_discovery_config or advisory_config) if llm_discovery else None,
+                unmetered=unmetered,
+            ),
+            envelope=resolve_envelope(
+                envelope_config,
+                {
+                    "max_locations": max_locations,
+                    "max_source_bytes": max_source_bytes,
+                    "max_bundle_bytes": max_bundle_bytes,
+                    "max_elided_index": max_elided_index,
+                    "context_lines": context_lines,
+                    "max_region_lines": max_region_lines,
+                },
+            ),
+            extraction_timeout=extraction_timeout,
+            query_timeout=query_timeout,
+            budget_micro_usd=budget_micro_usd,
+            max_requests=max_requests,
+            check_connectivity=check_connectivity,
+        )
+        target = output_dir or Path("work/pipeline") / datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        outcome.update(run_pipeline(ctx.obj, manifest, input_root, target, options))
+        return outcome
+
+    perform(operation)
+    if outcome.get("status") == "failed":
+        raise typer.Exit(1)
 
 
 @app.command("scan-import")

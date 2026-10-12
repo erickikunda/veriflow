@@ -69,11 +69,12 @@ def scan_selected(
     advisory=None,
 ):
     from veriflow.joern_pipeline import scan_run
+    from veriflow.scan_advisory import AUTO_POLICY
 
-    if advisory is not None:
+    if advisory is not None and advisory.review_policy != AUTO_POLICY:
         raise VeriFlowError(
-            "Automatic profile selection is discovery-only; "
-            "select an explicit --joern-profile for advisory"
+            "Automatic profile selection requires --review-policy auto; "
+            "an explicit policy needs an explicit --joern-profile"
         )
     run, manifest, _ = verified_source(store, run_id)
     detected, plan = selection(manifest, language)
@@ -95,10 +96,12 @@ def scan_selected(
                 query_timeout,
                 skip_existing,
                 profile,
+                advisory=None if advisory is None else advisory.for_profile(selected, profile),
             )
         except VeriFlowError as exc:
             result = {"status": "scope_error", "error": str(exc), "report_id": None}
         items.append({**result, **item})
+    model_calls = sum(item.get("model_calls", 0) for item in items)
     return {
         "schema_version": "1",
         "engine": "joern",
@@ -111,7 +114,8 @@ def scan_selected(
         "report_id": None,
         "report_ids": [item["report_id"] for item in items if item.get("report_id")],
         "status": "incomplete",
-        "model_calls": 0,
+        "model_calls": model_calls,
+        "live_model_calls": sum(item.get("live_model_calls", 0) for item in items),
         "security_completion_verified": False,
         "scope": (
             "Separate per-language/profile reports; no cross-language flow or clean verdict. "

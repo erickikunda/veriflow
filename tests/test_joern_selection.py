@@ -39,7 +39,7 @@ def test_scope_failure_continues_other_languages_and_reports(monkeypatch):
     )
     calls = []
 
-    def fake(*args):
+    def fake(*args, advisory=None):
         calls.append((args[2], args[8], args[9]))
         if args[2] == "csharp":
             raise VeriFlowError("C# requires repair")
@@ -58,11 +58,40 @@ def test_scope_failure_continues_other_languages_and_reports(monkeypatch):
     assert result["security_completion_verified"] is False
 
 
-def test_advisory_requires_explicit_profile():
-    with pytest.raises(VeriFlowError, match="discovery-only"):
+def test_explicit_advisory_policy_requires_explicit_profile():
+    explicit = SimpleNamespace(review_policy="joern-spring-review-v1")
+    with pytest.raises(VeriFlowError, match="review-policy auto"):
         joern_selection.scan_selected(
-            None, "run", "auto", "/joern", None, None, 300, 600, advisory=object()
+            None, "run", "auto", "/joern", None, None, 300, 600, advisory=explicit
         )
+
+
+def test_auto_advisory_binds_reviewed_policy_per_profile(monkeypatch):
+    from veriflow.models import ModelConfig
+    from veriflow.scan_advisory import AUTO_POLICY, AdvisoryOptions
+
+    monkeypatch.setattr(
+        joern_selection,
+        "verified_source",
+        lambda *a: (SimpleNamespace(repo_id="repo"), manifest("Main.java", "app.go"), None),
+    )
+    bound = {}
+
+    def fake(*args, advisory=None):
+        bound[(args[2], args[9] or "default")] = advisory.review_policy
+        return {"status": "incomplete", "report_id": None, "model_calls": 1}
+
+    monkeypatch.setattr(joern_pipeline, "scan_run", fake)
+    advisory = AdvisoryOptions(
+        ModelConfig(provider="replay", model="fixture"), object(), "key", AUTO_POLICY
+    )
+    result = joern_selection.scan_selected(
+        None, "run", "auto", "/joern", None, None, 300, 600, advisory=advisory
+    )
+    assert bound[("java", "default")] == "joern-spring-review-v1"
+    assert bound[("go", "go-http-shell-v1")] == "joern-go-http-review-v1"
+    assert bound[("java", "java-spring-file-path-v1")] is None
+    assert result["model_calls"] == len(bound) == 7
 
 
 def test_cli_omitted_language_and_profile_dispatch_auto(monkeypatch, tmp_path):

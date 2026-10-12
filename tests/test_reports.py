@@ -252,3 +252,10 @@ def test_report_cli_and_migration(store, scanned):
     assert result.exit_code == 0 and "<!doctype html>" in result.output
     assert runner.invoke(app, [*base, "get-report", scanned[0], "--format", "bad"]).exit_code == 1
     assert runner.invoke(app, [*base, "report-history", scanned[0]]).exit_code == 0
+
+
+def test_markdown_cell_escapes_each_character_once():
+    from veriflow.reports import markdown_cell
+
+    assert markdown_cell("needs_review (x) <b>") == ("needs&#95;review &#40;x&#41; &#60;b&#62;")
+    assert "&&#" not in markdown_cell("a#(b)_[c]'d'")

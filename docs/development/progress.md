@@ -1,4 +1,16 @@
-# Implementation progress through Slice 159
+# Implementation progress through Slice 160
+
+## Slice 160 — CSV pipeline command and advisory under automatic selection
+
+`run-pipeline-from-csv` takes each CSV row, one at a time, from intake through every Joern
+profile of every detected language, advisory triage of every candidate, report export and an
+OpenAnt-style summary, with JSON-lines step logs. It resumes: matching snapshots, usable attempts
+and stored triage calls are reused, `--rescan-empty` and `--reimport` are explicit. `--review-policy
+auto` lets automatic selection run advisory by binding each profile to its reviewed gate or to
+none, and `--llm-discovery` with automatic selection now actually runs, once per language. A
+double-escaping bug in Markdown report cells is fixed. A pipeline image recipe and an OCP Job
+renderer (hosted provider or Ollama sidecar) are added but not yet qualified. See
+[Slice 160](slice-160.md). Next build the image and run the Job on OCP.
 
 ## Slice 159 — Fair evidence allocation, windowed triage and a tunable envelope
 

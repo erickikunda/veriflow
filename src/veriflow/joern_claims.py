@@ -66,6 +66,16 @@ def require_policy(policy):
     return PROFILES[policy]
 
 
+def policy_for(language, discovery_profile):
+    """Reviewed policy for one discovery profile, or None when no reviewed gate exists."""
+    matches = [
+        policy
+        for policy, spec in PROFILES.items()
+        if spec[:2] == (language, discovery_profile or "default")
+    ]
+    return matches[0] if len(matches) == 1 else None
+
+
 def query_digest(policy=POLICY):
     return hashlib.sha256(
         files("veriflow").joinpath("queries/" + require_policy(policy)[3]).read_bytes()

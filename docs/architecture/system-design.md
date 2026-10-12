@@ -1235,3 +1235,14 @@ and argument splitting remain unverified. Separate automatic-selection reports;
 no new advisory, migration or image promotion. See
 [guide](../guides/csharp-shell-discovery.md). Next broaden Go HTTP file-path discovery
 to improve language/API breadth beyond the existing shell profile.
+
+
+## Slice 160 — CSV pipeline and advisory under automatic selection
+
+`run-pipeline-from-csv` (`csv_pipeline.py`, `pipeline_summary.py`) runs intake, all-profile
+Joern discovery, optional per-language LLM discovery, advisory triage, publication and export
+per CSV row, sequentially, with step logs and repository/run summaries. `--review-policy auto`
+binds each automatically selected profile to its reviewed policy or to none (ungated,
+unverified). The pipeline uses its own `pipeline.lock`; `exclusive_worker` stays per stage. See
+[CSV pipeline guide](../guides/csv-pipeline.md). No migration. Next OCP acceptance of the
+pipeline image and Job.

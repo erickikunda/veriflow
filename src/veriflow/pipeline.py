@@ -233,6 +233,8 @@ def scan_run(store, run_id, *args, llm_discovery=None, **kwargs):
     result = _deterministic_scan_run(store, run_id, *args, **kwargs)
     if llm_discovery is None:
         return result
+    if "items" in result:
+        return _selected_discovery(store, run_id, result, llm_discovery)
     attempt_id = result.get("attempt_id")
     if not attempt_id:
         return {
@@ -268,4 +270,66 @@ def scan_run(store, run_id, *args, llm_discovery=None, **kwargs):
         "candidate_count": refreshed["candidate_count"],
         "llm_discovery": discovery,
         "hybrid_status": "completed" if discovery["state"] == "completed" else "partial",
+    }
+
+
+def discovery_anchor(items, language):
+    """First usable attempt of one language; LLM candidates attach to it, not to every profile."""
+    return next(
+        (
+            item
+            for item in items
+            if item.get("language") == language
+            and item.get("attempt_id")
+            and item.get("analysis_status") in {"partial", "completed"}
+        ),
+        None,
+    )
+
+
+def _selected_discovery(store, run_id, result, options):
+    """Run one additive LLM pass per detected language after automatic profile selection."""
+    from dataclasses import replace
+
+    from veriflow.llm_discovery import DISCOVERY_SUFFIXES, run_hybrid_discovery
+
+    items = [dict(item) for item in result["items"]]
+    passes = []
+    # Only languages this selection scanned; detected but unrequested ones are not gaps here.
+    for language in dict.fromkeys(item["language"] for item in items):
+        entry = {"language": language, "provider_invocations": 0, "live_model_calls": 0}
+        anchor = discovery_anchor(items, language)
+        if language not in DISCOVERY_SUFFIXES:
+            passes.append({**entry, "state": "unsupported_language"})
+            continue
+        if anchor is None:
+            passes.append({**entry, "state": "skipped_deterministic_incomplete"})
+            continue
+        entry.update(attempt_id=anchor["attempt_id"], discovery_profile=anchor["discovery_profile"])
+        try:
+            discovery = run_hybrid_discovery(
+                store,
+                anchor["attempt_id"],
+                replace(options, request_key=f"{options.request_key}:{language}"),
+            )
+        except VeriFlowError as exc:
+            passes.append({**entry, "state": "failed", "reason": str(exc)})
+            continue
+        refreshed = publish_report(store, result["repo_id"], run_id, anchor["attempt_id"])
+        anchor.update(
+            report_id=refreshed["report_id"], candidate_count=refreshed["candidate_count"]
+        )
+        passes.append({**entry, **discovery})
+    invocations = sum(item["provider_invocations"] for item in passes)
+    return {
+        **result,
+        "items": items,
+        "report_ids": [item["report_id"] for item in items if item.get("report_id")],
+        "model_calls": result.get("model_calls", 0) + invocations,
+        "live_model_calls": result.get("live_model_calls", 0)
+        + sum(item["live_model_calls"] for item in passes),
+        "llm_discovery": {"passes": passes, "provider_invocations": invocations},
+        "hybrid_status": (
+            "completed" if passes and all(p["state"] == "completed" for p in passes) else "partial"
+        ),
     }

@@ -34,9 +34,15 @@ result never means the repository is clean.
 
 To narrow discovery, pass `--language python --joern-profile python-flask-sql-v1`.
 Use `--joern-profile default` to select the previous default rule, including when
-requesting an existing default-rule advisory. Advisory options require an explicit
-profile; automatic multi-profile discovery does not spend a model budget.
-An explicit profile with `--language auto` retains the single-language requirement.
+requesting an existing default-rule advisory. Since Slice 160, automatic
+multi-profile discovery accepts advisory only with `--review-policy auto`: each
+(language, profile) attempt is bound to its reviewed policy when one exists, and is
+otherwise sent without a policy. Ungated requests stop at `unsupported_rule` unless
+`--allow-degraded-evidence` is set; when sent, the generic gate returns `unsupported_engine`
+for Joern, so their advisory outcome is always `abstain`. An explicit
+policy still needs an explicit profile, and an explicit profile with `--language auto`
+retains the single-language requirement. With `--llm-discovery`, one additive LLM pass
+runs per detected language, attached to that language's first usable attempt.
 
 The default scanner engine remains CodeQL. Its automatic language selection keeps
 its existing ambiguity checks and requires a compatible query/suite. Direct Python
