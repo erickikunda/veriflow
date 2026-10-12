@@ -1,0 +1,15 @@
+# CSV pipeline image; keeps a qualified Joern toolchain base and adds the current locked wheel.
+# The general base covers java, python, javascript, typescript, go, c and cpp. Build C# or Rust
+# variants with --build-arg BASE=<joern-csharp-advisory or joern-rust-advisory digest>.
+ARG BASE=veriflow:joern-argv-advisory-linux-poc@sha256:e8b52d9a2549b3f1174a6b1ac5918dae60fe74e51c0f9c48ab8c14af5da82153
+FROM ${BASE}
+USER 0
+COPY containers/requirements.lock /tmp/requirements.lock
+RUN /opt/veriflow-venv/bin/pip install --no-cache-dir --require-hashes --only-binary=:all: -r /tmp/requirements.lock
+COPY dist/veriflow-0.1.0-py3-none-any.whl /tmp/veriflow-0.1.0-py3-none-any.whl
+RUN /opt/veriflow-venv/bin/pip install --no-index --no-deps --force-reinstall /tmp/veriflow-0.1.0-py3-none-any.whl && \
+    /opt/veriflow-venv/bin/pip check && \
+    sha256sum /tmp/veriflow-0.1.0-py3-none-any.whl /tmp/requirements.lock > /opt/veriflow/application-inputs.sha256
+USER 1001:0
+ENTRYPOINT ["/opt/veriflow-venv/bin/veriflow"]
+CMD ["--help"]
