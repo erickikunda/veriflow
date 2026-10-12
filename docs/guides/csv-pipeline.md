@@ -101,9 +101,6 @@ unverified column (`Model verdict (unverified)`, `by_model_verdict`). Use
   `busy`, the stage waits and retries up to six times (1, 2, 4, 8, 16 s). Every wrapped stage is
   idempotent or resumable. Avoid other write commands on the same state directory during a run;
   read commands are safe under WAL.
-- The state directory must be local or RWO block storage. On Linux the pipeline reads
-  `/proc/self/mounts` and refuses NFS, CIFS/SMB, CephFS, GlusterFS and similar mounts, because
-  WAL needs shared memory and POSIX locks on one host.
 - Some other commands (reviews, rule registry, import controls) nest transactions, so the
   store keeps deferred `BEGIN`; a global `BEGIN IMMEDIATE` would deadlock them.
 
@@ -170,7 +167,7 @@ oc apply -f work/nightly.json
 - Reports go to `/reports/<job name>`.
 - `/state` holds SQLite and scan artifacts and **must persist** for resume. Use a block-backed
   PVC with `ReadWriteOncePod` (or RWO, and never two Jobs on one PVC at a time); never RWX or
-  NFS storage. The pipeline refuses known network filesystems.
+  NFS storage.
 - `/work` and `/tmp` are emptyDir scratch; the Joern base image uses `/work` as HOME.
 - Hosted providers: the NetworkPolicy allows DNS and TCP 443 to the given CIDRs only.
   NetworkPolicy cannot filter by host name; use an EgressFirewall for that.

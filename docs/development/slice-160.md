@@ -84,16 +84,15 @@ An adversarial review found 16 defects in the first version; all are fixed and e
 - No pipeline stage keeps a transaction open while Joern or a provider runs.
 - Stages retry `exclusive_worker` contention and SQLite `locked`/`busy` errors with backoff.
   Before, contention from another process failed the stage at once.
-- The state directory is refused on NFS, CIFS/SMB, CephFS, GlusterFS and similar mounts.
 - A global `BEGIN IMMEDIATE` was tested and rejected: reviews, rule registry, import controls
   and one LLM discovery review path nest transactions and would deadlock. Deferred `BEGIN`
   stays; the pipeline's own paths do not nest.
 
 ## Verification
 
-- `uv run pytest`: 1400 passed.
-- `tests/test_csv_pipeline.py` (25): the first 12 cases plus one regression test per review
-  finding, lock retry and the network-filesystem refusal.
+- `uv run pytest`: 1399 passed.
+- `tests/test_csv_pipeline.py` (24): the first 12 cases plus one regression test per review
+  finding and the lock retry.
 - `tests/test_render_ocp_pipeline.py` (7) and two new `tests/test_joern_selection.py` cases.
 - A host run with Joern 4.0.625 on the `joern-flask/vulnerable` fixture: 4 Python profiles,
   1 candidate, triaged under `joern-flask-review-v1` with a replay provider. A second run reused
@@ -105,7 +104,6 @@ An adversarial review found 16 defects in the first version; all are fixed and e
 - No live provider was called. No container image was built and no Job ran on OCP.
 - Advisory outcomes are not verdicts. Ungated outcomes are unverified even when they complete.
 - Calls stored as `unknown` are retried only with `--retry-unknown`.
-- The filesystem check reads `/proc/self/mounts`; it does not run on macOS.
 - The state PVC must be RWO block storage; SQLite on shared network storage is unsupported.
 - No migration.
 

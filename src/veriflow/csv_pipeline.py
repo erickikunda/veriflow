@@ -61,23 +61,6 @@ PAGE = 1000
 # Consecutive fresh provider calls ending "unknown" before triage stops for the whole run.
 BREAKER_LIMIT = 3
 WORKER_BUSY = "A local worker already owns this state directory"
-# SQLite WAL needs shared memory and POSIX locks on one host; these mounts cannot promise that.
-NETWORK_FILESYSTEMS = {
-    "9p",
-    "afs",
-    "ceph",
-    "cifs",
-    "fuse.cephfs",
-    "fuse.glusterfs",
-    "fuse.sshfs",
-    "glusterfs",
-    "gpfs",
-    "lustre",
-    "nfs",
-    "nfs4",
-    "smb3",
-    "smbfs",
-}
 sleep = time.sleep
 
 
@@ -213,35 +196,6 @@ def pipeline_lock(root):
             yield
         finally:
             fcntl.flock(handle, fcntl.LOCK_UN)
-
-
-def mount_type(path, mounts=Path("/proc/self/mounts")):
-    """Filesystem type holding path; None where the mount table is unavailable."""
-    try:
-        lines = mounts.read_text().splitlines()
-    except OSError:
-        return None
-    target = str(path.resolve())
-    best, kind = "", None
-    for line in lines:
-        parts = line.split()
-        if len(parts) < 3:
-            continue
-        mount = parts[1].replace("\\040", " ")
-        if (target == mount or target.startswith(mount.rstrip("/") + "/")) and len(mount) >= len(
-            best
-        ):
-            best, kind = mount, parts[2]
-    return kind
-
-
-def check_state_storage(root):
-    kind = mount_type(root)
-    if kind in NETWORK_FILESYSTEMS:
-        raise VeriFlowError(
-            f"State directory is on {kind}; SQLite WAL needs local or RWO block storage"
-        )
-    return kind
 
 
 def read_manifest(path):
@@ -865,8 +819,7 @@ def run_pipeline(store, manifest, input_root, output, options, echo=None):
         breaker = ProviderBreaker()
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         started_at, started = now(), time.monotonic()
-        with log.step("initialize", rows=len(rows)) as record:
-            record["state_filesystem"] = check_state_storage(store.root)
+        with log.step("initialize", rows=len(rows)):
             store.initialize()
             preflight(options)
         seen = {}

@@ -535,18 +535,6 @@ def test_with_retry_waits_out_lock_contention(monkeypatch):
         csv_pipeline.with_retry(log, "x", lambda: (_ for _ in ()).throw(VeriFlowError("different")))
 
 
-def test_state_on_network_filesystem_is_refused(tmp_path):
-    mounts = tmp_path / "mounts"
-    mounts.write_text(
-        "overlay / overlay rw 0 0\n"
-        f"server:/export {tmp_path / 'state'} nfs4 rw 0 0\n"
-        f"/dev/sdb {tmp_path / 'local'} ext4 rw 0 0\n"
-    )
-    assert csv_pipeline.mount_type(tmp_path / "state" / "x", mounts) == "nfs4"
-    assert csv_pipeline.mount_type(tmp_path / "local", mounts) == "ext4"
-    assert csv_pipeline.mount_type(tmp_path / "missing", tmp_path / "none") is None
-
-
 def test_summary_reports_unverified_model_verdict():
     state = {
         "repo_id": "repo",
