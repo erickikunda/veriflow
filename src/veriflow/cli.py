@@ -27,8 +27,31 @@ def configure(
     state_dir: Annotated[
         Path, typer.Option(help="Local state directory; never use shared network storage")
     ] = Path(".veriflow"),
+    profile_mode: Annotated[
+        str,
+        typer.Option(
+            envvar="VERIFLOW_PROFILE_MODE",
+            help="trusted-directory loads runtime profiles from --profiles-dir; "
+            "approved loads only packaged and approved registry profiles",
+        ),
+    ] = "trusted-directory",
+    profiles_dir: Annotated[
+        Path | None,
+        typer.Option(
+            envvar="VERIFLOW_PROFILES_DIR",
+            help="Trusted runtime Joern profile folders; default <state-dir>/profiles",
+        ),
+    ] = None,
 ):
+    from veriflow.joern_profiles import MODES
+
+    if profile_mode not in MODES:
+        raise typer.BadParameter(
+            "must be trusted-directory or approved", param_hint="--profile-mode"
+        )
     ctx.obj = Store(state_dir)
+    ctx.obj.profile_mode = profile_mode
+    ctx.obj.profiles_dir = profiles_dir
     ctx.call_on_close(ctx.obj.close)
 
 
@@ -184,6 +207,94 @@ def rule_registry_command(ctx: typer.Context, version: int | None = None):
     from veriflow.rule_registry import registry_status
 
     perform(lambda: registry_status(ctx.obj, version))
+
+
+@app.command("profile-list")
+def profile_list_command(ctx: typer.Context):
+    """Show the effective Joern profile catalog for the current mode; runs no tool."""
+    from veriflow.joern_profiles import summary
+
+    def operation():
+        ctx.obj.require_initialized()
+        return summary(ctx.obj)
+
+    perform(operation)
+
+
+@app.command("profile-scaffold")
+def profile_scaffold_command(
+    name: str,
+    language: Annotated[str, typer.Option(help="Joern language of the new profile")],
+    output: Annotated[Path, typer.Option(help="Folder in which to create NAME/")] = Path("."),
+    rule_id: str | None = None,
+):
+    """Write an editable runtime profile folder with the required query output contract."""
+    from veriflow.profile_admin import scaffold
+
+    perform(lambda: scaffold(name, language, output, rule_id))
+
+
+@app.command("profile-add")
+def profile_add_command(ctx: typer.Context, folder: Path):
+    """Copy a profile folder into an immutable draft; nothing is activated."""
+    from veriflow.profile_admin import add_profile
+
+    perform(lambda: add_profile(ctx.obj, folder))
+
+
+@app.command("profile-test")
+def profile_test_command(
+    ctx: typer.Context,
+    draft_id: str,
+    joern_home: Annotated[Path, typer.Option(help="Joern installation directory")],
+    joern_repair_dir: Path | None = None,
+    rust_home: Path | None = None,
+    timeout: Annotated[int, typer.Option(min=1, max=3600)] = 180,
+    extraction_timeout: Annotated[int | None, typer.Option(min=1, max=3600)] = None,
+):
+    """Run Joern on the draft's fixtures in a disposable state and record the outcome."""
+    from veriflow.profile_admin import test_profile
+
+    perform(
+        lambda: test_profile(
+            ctx.obj,
+            draft_id,
+            joern_home,
+            timeout=timeout,
+            extraction_timeout=extraction_timeout,
+            repair_dir=joern_repair_dir,
+            rust_home=rust_home,
+        )
+    )
+
+
+@app.command("profile-status")
+def profile_status_command(ctx: typer.Context, draft_id: str):
+    """Show a runtime profile draft, its recorded tests and approval."""
+    from veriflow.profile_admin import profile_status
+
+    perform(lambda: profile_status(ctx.obj, draft_id))
+
+
+@app.command("profile-approve")
+def profile_approve_command(ctx: typer.Context, draft_id: str, approval: Path, key: str):
+    """Approve a draft whose latest profile-test passed; KEY makes a retry idempotent."""
+    from veriflow.profile_admin import approve_profile, read_approval
+
+    perform(lambda: approve_profile(ctx.obj, draft_id, read_approval(approval), key))
+
+
+@app.command("profile-disable")
+def profile_disable_command(
+    ctx: typer.Context,
+    name: str,
+    expected_registry_version: Annotated[int, typer.Option(min=0)],
+    reason: Annotated[str, typer.Option(help="Why the profile stops running")],
+):
+    """Write a registry version without the profile; earlier versions stay readable."""
+    from veriflow.profile_admin import disable_profile
+
+    perform(lambda: disable_profile(ctx.obj, name, expected_registry_version, reason))
 
 
 @app.command("acceptance-run")
@@ -1081,8 +1192,8 @@ def evidence_check(
         if review_policy is not None:
             from veriflow.joern_claims import assess_review_evidence, require_policy
 
-            require_policy(review_policy)
-            return assess_review_evidence(bundle, parsed, review_policy)
+            require_policy(review_policy, ctx.obj)
+            return assess_review_evidence(bundle, parsed, review_policy, ctx.obj)
         return assess_evidence(bundle, parsed)
 
     perform(operation)

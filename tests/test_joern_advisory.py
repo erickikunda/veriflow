@@ -184,7 +184,7 @@ def test_changed_preflight_does_not_reuse_prior_advice(store, audited_bundle, mo
     triage(store, b["bundle_id"], policy(), adapter, "same", review_policy=POLICY)
     monkeypatch.setattr(
         "veriflow.joern_claims.review_preflight",
-        lambda bundle, policy: {
+        lambda bundle, policy, store=None: {
             "passed": False,
             "status": "insufficient_native_evidence",
             "policy_id": POLICY,

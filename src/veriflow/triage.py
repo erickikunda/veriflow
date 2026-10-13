@@ -144,9 +144,9 @@ def triage(
         if review_policy is not None:
             from veriflow.joern_claims import require_policy, review_preflight
 
-            require_policy(review_policy)
-            preflight = review_preflight(bundle, review_policy)
-        body = request_body(bundle, config, review_policy=review_policy)
+            require_policy(review_policy, store)
+            preflight = review_preflight(bundle, review_policy, store)
+        body = request_body(bundle, config, review_policy=review_policy, store=store)
         # Preserve existing replay/cloud idempotency hashes when adding local-only settings.
         policy_identity = config.model_dump(
             exclude={"ollama_context_tokens"} if config.provider != "ollama" else set()
@@ -304,7 +304,7 @@ def triage(
                     if review_policy is not None:
                         from veriflow.joern_claims import assess_review_evidence
 
-                        gate = assess_review_evidence(bundle, decision, review_policy)
+                        gate = assess_review_evidence(bundle, decision, review_policy, store)
                     else:
                         gate = assess_evidence(bundle, decision)
                     result["evidence_gate"] = gate

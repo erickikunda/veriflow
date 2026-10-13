@@ -1,0 +1,649 @@
+{
+  "schema_version": "1",
+  "engine": "joern",
+  "profiles": [
+    {
+      "name": "default",
+      "bindings": {
+        "java": {
+          "rule_id": "veriflow/joern-spring-get-jdbc-sql-v1",
+          "query": "joern-java-flow.sc"
+        }
+      },
+      "message": "Spring GET parameter to JDBC SQL argument flow; discovery only.",
+      "cwe_scope": null,
+      "limitations": [
+        "Public Spring GetMapping String RequestParam only; other sources omitted.",
+        "Exact JDBC Statement.executeQuery(String) graph signature only.",
+        "Java source only; dependencies, builds and other languages omitted.",
+        "Discovery only; no qualified triage or clean security verdict.",
+        "Version layout checked; installed tool contents not cryptographically verified.",
+        "Network not isolated; automatic result reuse disabled."
+      ],
+      "selection": "auto",
+      "hooks": {}
+    },
+    {
+      "name": "java-spring-file-path-v1",
+      "bindings": {
+        "java": {
+          "rule_id": "veriflow/joern-spring-get-file-path-v1",
+          "query": "joern-java-path.sc"
+        }
+      },
+      "message": "CWE-22: Spring input to Files.readAllBytes; escape unverified.",
+      "cwe_scope": [
+        "CWE-22"
+      ],
+      "limitations": [
+        "Spring GET String RequestParam to Files.readAllBytes(Path) only.",
+        "Modeled Path propagation is not proof of directory escape or runtime identity.",
+        "Confinement, guards and deployment access unverified; advisory unsupported.",
+        "Discovery only; incomplete coverage and no clean verdict."
+      ],
+      "selection": "auto",
+      "hooks": {}
+    },
+    {
+      "name": "java-spring-url-stream-v1",
+      "bindings": {
+        "java": {
+          "rule_id": "veriflow/joern-spring-get-url-stream-v1",
+          "query": "joern-java-ssrf.sc"
+        }
+      },
+      "message": "CWE-918: Spring input to URL.openStream; destination unverified.",
+      "cwe_scope": [
+        "CWE-918"
+      ],
+      "limitations": [
+        "Spring GET String RequestParam to exact URL.openStream receiver only.",
+        "URL constructor propagation is modeled; runtime access is unverified.",
+        "Redirects, DNS, destination policy and egress unverified; advisory unsupported.",
+        "Other HTTP clients and source bindings omitted; no clean verdict."
+      ],
+      "selection": "auto",
+      "hooks": {}
+    },
+    {
+      "name": "java-spring-object-read-v1",
+      "bindings": {
+        "java": {
+          "rule_id": "veriflow/joern-spring-get-object-read-v1",
+          "query": "joern-java-deserialization.sc"
+        }
+      },
+      "message": "CWE-502: Spring input to ObjectInputStream.readObject; candidate.",
+      "cwe_scope": [
+        "CWE-502"
+      ],
+      "limitations": [
+        "Spring GET String RequestParam to exact ObjectInputStream.readObject receiver.",
+        "Base64 and byte-stream constructor propagation modeled; runtime unverified.",
+        "Object filters, allowlists, gadget classes and exploitability unverified.",
+        "Other sources, serializers and readUnshared omitted; advisory unsupported.",
+        "Discovery only; incomplete coverage and no clean verdict."
+      ],
+      "selection": "auto",
+      "hooks": {}
+    },
+    {
+      "name": "java-spring-xml-entities-v1",
+      "bindings": {
+        "java": {
+          "rule_id": "veriflow/joern-spring-get-xml-entities-v1",
+          "query": "joern-java-xml.sc"
+        }
+      },
+      "message": "CWE-611: Spring input to entity-enabled DOM; candidate.",
+      "cwe_scope": [
+        "CWE-611"
+      ],
+      "limitations": [
+        "Spring GET String RequestParam to DocumentBuilder.parse(InputSource) only.",
+        "Factory external-general-entities=true observed through direct local bindings.",
+        "Configuration ordering, reassignments, overrides and resolvers unverified.",
+        "Default/unknown settings and other XML APIs omitted; advisory unsupported.",
+        "External access restrictions and actual entity resolution unverified.",
+        "Discovery only; no clean verdict or proven exploitability."
+      ],
+      "selection": "auto",
+      "hooks": {}
+    },
+    {
+      "name": "java-spring-runtime-shell-v1",
+      "bindings": {
+        "java": {
+          "rule_id": "veriflow/joern-spring-get-runtime-shell-v1",
+          "query": "joern-java-shell.sc"
+        }
+      },
+      "message": "CWE-78: Spring input to Runtime.exec shell text; candidate.",
+      "cwe_scope": [
+        "CWE-78"
+      ],
+      "limitations": [
+        "Spring GET String RequestParam to Runtime.exec(String[]) shell text only.",
+        "Inline three-element array: literal sh/bash, -c, then command text.",
+        "Other overloads, ProcessBuilder, array variables and Windows shells omitted.",
+        "Guards, executable identity and runtime exploitability unverified.",
+        "Discovery only; advisory unsupported and no clean verdict."
+      ],
+      "selection": "auto",
+      "hooks": {}
+    },
+    {
+      "name": "default",
+      "bindings": {
+        "csharp": {
+          "rule_id": "veriflow/joern-csharp-lookup-commandtext-v1",
+          "query": "joern-csharp-flow.sc"
+        }
+      },
+      "message": "Experimental Lookup(name) to CommandText flow; discovery only.",
+      "cwe_scope": null,
+      "limitations": [
+        "Experimental Lookup(name) parameter to CommandText assignment profile only.",
+        "C# source only; dependencies, builds and other languages omitted.",
+        "Syntax facts do not authenticate framework or database types.",
+        "Only uniquely mapped paths published; unsupported paths retained in raw output.",
+        "Discovery only; no qualified triage, complete coverage or clean verdict.",
+        "Trusted tools required; receipt hashes do not authenticate the publisher.",
+        "Network not isolated by this command; automatic result reuse disabled."
+      ],
+      "selection": "auto",
+      "hooks": {}
+    },
+    {
+      "name": "csharp-query-commandtext-v1",
+      "bindings": {
+        "csharp": {
+          "rule_id": "veriflow/joern-csharp-query-commandtext-v1",
+          "query": "joern-csharp-query.sc"
+        }
+      },
+      "message": "CWE-89: C# query-binding syntax to CommandText; candidate.",
+      "cwe_scope": [
+        "CWE-89"
+      ],
+      "limitations": [
+        "Parameter flows filtered by mapped FromQuery/classic HTTP syntax facts.",
+        "Method and parameter names unrestricted; runtime route exposure unverified.",
+        "CommandText property name only; database type and execution unverified.",
+        "Raw graph source counts include parameters before syntax filtering.",
+        "Syntax parser limits/ambiguity can omit paths; advisory unsupported.",
+        "Discovery only; no complete coverage or clean verdict."
+      ],
+      "selection": "auto",
+      "hooks": {
+        "csharp_query_source": true
+      }
+    },
+    {
+      "name": "csharp-query-file-read-v1",
+      "bindings": {
+        "csharp": {
+          "rule_id": "veriflow/joern-csharp-query-file-read-v1",
+          "query": "joern-csharp-path.sc"
+        }
+      },
+      "message": "CWE-22: C# query input to File.ReadAllText; candidate.",
+      "cwe_scope": [
+        "CWE-22"
+      ],
+      "limitations": [
+        "Mapped query-binding source to fully qualified System.IO.File.ReadAllText syntax.",
+        "Short names and local System/IO/File type lookalikes excluded.",
+        "Frontend API signature unresolved; receiver text is not binding proof.",
+        "Runtime API identity, confinement, guards and file access unverified.",
+        "Raw graph counts precede syntax filtering; parser limits can omit paths.",
+        "Other file APIs and query forms omitted; advisory unsupported.",
+        "Discovery only; no proven directory escape or clean verdict."
+      ],
+      "selection": "auto",
+      "hooks": {
+        "csharp_query_source": true
+      }
+    },
+    {
+      "name": "csharp-query-shell-start-v1",
+      "bindings": {
+        "csharp": {
+          "rule_id": "veriflow/joern-csharp-query-shell-start-v1",
+          "query": "joern-csharp-shell.sc"
+        }
+      },
+      "message": "CWE-78: C# query input to Process.Start shell text; candidate.",
+      "cwe_scope": [
+        "CWE-78"
+      ],
+      "limitations": [
+        "Mapped query-source to fully qualified Process.Start shell argument syntax.",
+        "Literal sh/bash executable and argument expression beginning with literal -c.",
+        "Runtime API identity, argument splitting and exploitability unverified.",
+        "Local System/Diagnostics/Process types excluded; other process forms omitted.",
+        "Raw counts precede syntax filtering; advisory unsupported; no clean verdict."
+      ],
+      "selection": "auto",
+      "hooks": {
+        "csharp_query_source": true
+      }
+    },
+    {
+      "name": "default",
+      "bindings": {
+        "python": {
+          "rule_id": "veriflow/joern-python-lookup-system-v1",
+          "query": "joern-python-flow.sc"
+        }
+      },
+      "message": "Experimental lookup(input)/system flow; discovery only.",
+      "cwe_scope": null,
+      "limitations": [
+        "Experimental lookup(input) parameter to call named system argument profile only.",
+        "Python source only; frameworks, dependencies and other languages omitted.",
+        "Call names do not authenticate os.system or prove runtime reachability.",
+        "Discovery only; no qualified triage, complete coverage or clean verdict.",
+        "Version layout checked; trusted operator tooling required.",
+        "Network not isolated by this command; automatic result reuse disabled."
+      ],
+      "selection": "explicit",
+      "hooks": {}
+    },
+    {
+      "name": "python-flask-system-v1",
+      "bindings": {
+        "python": {
+          "rule_id": "veriflow/joern-python-flask-system-v1",
+          "query": "joern-python-flask-system.sc"
+        }
+      },
+      "message": "Flask request input to os.system; discovery only.",
+      "cwe_scope": null,
+      "limitations": [
+        "Single-line Flask request.args/form.get(string) to os.system argument only.",
+        "Top-level imports and no obvious rebinding required; aliases supported.",
+        "Dynamic monkeypatching, module resolution and HTTP reachability unqualified.",
+        "Ambiguous graph endpoints withheld; synthetic intermediate nodes retained.",
+        "Discovery only; no qualified triage, complete coverage or clean verdict.",
+        "Trusted tools required; command does not enforce OS network isolation."
+      ],
+      "selection": "auto",
+      "hooks": {
+        "flask_endpoints": {
+          "facts": null,
+          "shadow_modules": []
+        }
+      }
+    },
+    {
+      "name": "python-flask-path-v1",
+      "bindings": {
+        "python": {
+          "rule_id": "veriflow/joern-python-flask-path-v1",
+          "query": "joern-python-flask-path.sc"
+        }
+      },
+      "message": "CWE-22: Flask input to file path; directory escape unverified.",
+      "cwe_scope": [
+        "CWE-22"
+      ],
+      "limitations": [
+        "CWE-22 candidate: Flask args/form.get to unshadowed open read-path argument.",
+        "Single-line calls, positional paths, optional constant read mode only.",
+        "Directory confinement, guards and runtime builtin identity unverified.",
+        "Discovery only; advisory unsupported; no clean verdict or complete coverage."
+      ],
+      "selection": "auto",
+      "hooks": {
+        "flask_endpoints": {
+          "facts": "file_paths",
+          "shadow_modules": []
+        }
+      }
+    },
+    {
+      "name": "python-flask-ssrf-v1",
+      "bindings": {
+        "python": {
+          "rule_id": "veriflow/joern-python-flask-ssrf-v1",
+          "query": "joern-python-flask-ssrf.sc"
+        }
+      },
+      "message": "CWE-918: Flask input to requests.get URL; destination unverified.",
+      "cwe_scope": [
+        "CWE-918"
+      ],
+      "limitations": [
+        "Flask args/form.get to imported requests.get positional URL only.",
+        "Destination restrictions, redirects, DNS and runtime egress unverified.",
+        "Single-line calls; optional positive literal timeout only; aliases supported.",
+        "Discovery only; advisory unsupported; incomplete coverage and no clean verdict."
+      ],
+      "selection": "auto",
+      "hooks": {
+        "flask_endpoints": {
+          "facts": "http_urls",
+          "shadow_modules": [
+            "requests"
+          ]
+        }
+      }
+    },
+    {
+      "name": "python-flask-sql-v1",
+      "bindings": {
+        "python": {
+          "rule_id": "veriflow/joern-python-flask-sql-v1",
+          "query": "joern-python-flask-sql.sc"
+        }
+      },
+      "message": "CWE-89: Flask input to sqlite3 SQL text; exploitability unverified.",
+      "cwe_scope": [
+        "CWE-89"
+      ],
+      "limitations": [
+        "Flask input to sqlite3.connect(literal).execute positional SQL text only.",
+        "Bound values are not SQL text; cursor variables and other drivers unsupported.",
+        "SQL syntax, runtime identity and sanitizer effectiveness unverified.",
+        "Discovery only; advisory unsupported; incomplete coverage and no clean verdict."
+      ],
+      "selection": "auto",
+      "hooks": {
+        "flask_endpoints": {
+          "facts": "sql_queries",
+          "shadow_modules": [
+            "sqlite3"
+          ]
+        }
+      }
+    },
+    {
+      "name": "default",
+      "bindings": {
+        "javascript": {
+          "rule_id": "veriflow/joern-javascript-lookup-eval-v1",
+          "query": "joern-javascript-flow.sc"
+        }
+      },
+      "message": "Experimental lookup(input)/eval flow; discovery only.",
+      "cwe_scope": null,
+      "limitations": [
+        "Experimental lookup(input) parameter to call named eval argument profile only.",
+        "Only .js copied; mixed-language flows and JSX/TSX omitted.",
+        "Frameworks, project configuration, dependencies and builds omitted.",
+        "Call names do not authenticate builtin eval or prove runtime reachability.",
+        "Discovery only; no qualified triage, complete coverage or clean verdict.",
+        "Version layout checked; trusted operator tooling required.",
+        "Network not isolated by this command; automatic result reuse disabled."
+      ],
+      "selection": "explicit",
+      "hooks": {}
+    },
+    {
+      "name": "express-request-eval-v1",
+      "bindings": {
+        "javascript": {
+          "rule_id": "veriflow/joern-javascript-express-eval-v1",
+          "query": "joern-javascript-express-eval.sc"
+        },
+        "typescript": {
+          "rule_id": "veriflow/joern-typescript-express-eval-v1",
+          "query": "joern-typescript-express-eval.sc"
+        }
+      },
+      "message": "Express request property to builtin eval; discovery only.",
+      "cwe_scope": null,
+      "limitations": [
+        "Express graph signatures for get/post and inline callback argument 2 only.",
+        "Factory import aliases are not qualified; dependencies/builds are omitted.",
+        "First callback parameter query/body/params field reads; builtin eval signature.",
+        "Graph resolution is not proof of package identity or HTTP/runtime reachability.",
+        "Routers, middleware, named callbacks, computed properties and JSX/TSX omitted.",
+        "Discovery only; no qualified triage, complete coverage or clean verdict.",
+        "Trusted tools required; command does not enforce OS network isolation."
+      ],
+      "selection": "auto",
+      "hooks": {}
+    },
+    {
+      "name": "express-request-exec-v1",
+      "bindings": {
+        "javascript": {
+          "rule_id": "veriflow/joern-javascript-express-exec-v1",
+          "query": "joern-javascript-express-exec.sc"
+        },
+        "typescript": {
+          "rule_id": "veriflow/joern-typescript-express-exec-v1",
+          "query": "joern-typescript-express-exec.sc"
+        }
+      },
+      "message": "CWE-78: Express input to child_process.exec; discovery only.",
+      "cwe_scope": [
+        "CWE-78"
+      ],
+      "limitations": [
+        "Express get/post inline callbacks and query/body/params field reads only.",
+        "Resolved child_process:exec first argument; other execution APIs omitted.",
+        "Graph resolution does not prove runtime identity or HTTP exposure.",
+        "Shell command candidate; guards unverified; advisory unsupported.",
+        "Routers, middleware, computed fields and JSX/TSX omitted; no clean verdict."
+      ],
+      "selection": "auto",
+      "hooks": {}
+    },
+    {
+      "name": "express-html-send-v1",
+      "bindings": {
+        "javascript": {
+          "rule_id": "veriflow/joern-javascript-express-html-send-v1",
+          "query": "joern-javascript-express-html.sc"
+        },
+        "typescript": {
+          "rule_id": "veriflow/joern-typescript-express-html-send-v1",
+          "query": "joern-typescript-express-html.sc"
+        }
+      },
+      "message": "CWE-79: Express input to explicit HTML response; discovery only.",
+      "cwe_scope": [
+        "CWE-79"
+      ],
+      "limitations": [
+        "Express get/post inline callback request fields to response.type(html).send only.",
+        "Literal html/text/html and direct callback response receiver required.",
+        "Encoding, response mutations, middleware and browser execution unverified.",
+        "No runtime type guarantee; graph bindings are not runtime identity proof.",
+        "Other response APIs, templates and JSX/TSX omitted; advisory unsupported.",
+        "Discovery only; no clean verdict or proven exploitability."
+      ],
+      "selection": "auto",
+      "hooks": {}
+    },
+    {
+      "name": "default",
+      "bindings": {
+        "typescript": {
+          "rule_id": "veriflow/joern-typescript-lookup-eval-v1",
+          "query": "joern-typescript-flow.sc"
+        }
+      },
+      "message": "Experimental lookup(input)/eval flow; discovery only.",
+      "cwe_scope": null,
+      "limitations": [
+        "Experimental lookup(input) parameter to call named eval argument profile only.",
+        "Only .ts copied; mixed-language flows and JSX/TSX omitted.",
+        "Frameworks, project configuration, dependencies and builds omitted.",
+        "Call names do not authenticate builtin eval or prove runtime reachability.",
+        "Discovery only; no qualified triage, complete coverage or clean verdict.",
+        "Version layout checked; trusted operator tooling required.",
+        "Network not isolated by this command; automatic result reuse disabled."
+      ],
+      "selection": "explicit",
+      "hooks": {}
+    },
+    {
+      "name": "default",
+      "bindings": {
+        "go": {
+          "rule_id": "veriflow/joern-go-lookup-command-v1",
+          "query": "joern-go-flow.sc"
+        }
+      },
+      "message": "Experimental lookup(input)/Command flow; discovery only.",
+      "cwe_scope": null,
+      "limitations": [
+        "Experimental lookup(input) to call named Command argument 3 profile only.",
+        "Only .go files and go.mod metadata copied; dependencies/builds omitted.",
+        "Call names do not authenticate os/exec.Command or prove shell execution.",
+        "Frameworks, cgo, build tags and advanced language semantics unqualified.",
+        "Discovery only; no qualified triage, complete coverage or clean verdict.",
+        "Version layout checked; trusted operator tooling required.",
+        "Go proxy/checksum downloads disabled; OS network isolation still required."
+      ],
+      "selection": "explicit",
+      "hooks": {}
+    },
+    {
+      "name": "go-http-shell-v1",
+      "bindings": {
+        "go": {
+          "rule_id": "veriflow/joern-go-http-shell-v1",
+          "query": "joern-go-http-shell.sc"
+        }
+      },
+      "message": "Go HTTP form input to shell command text; discovery only.",
+      "cwe_scope": null,
+      "limitations": [
+        "net/http Request FormValue/PostFormValue graph signatures only.",
+        "os/exec.Command with literal sh/bash or /bin/sh /bin/bash, then -c only.",
+        "Command construction does not prove execution or HTTP route reachability.",
+        "Graph identities, dynamic mutation and sanitization are not qualified.",
+        "CommandContext, other shells, flags and HTTP sources omitted.",
+        "Only .go and go.mod copied; dependencies/builds and mixed languages omitted.",
+        "Discovery only; no qualified triage, complete coverage or clean verdict.",
+        "Go downloads disabled; command does not enforce OS network isolation."
+      ],
+      "selection": "auto",
+      "hooks": {}
+    },
+    {
+      "name": "default",
+      "bindings": {
+        "rust": {
+          "rule_id": "veriflow/joern-rust-lookup-arg-v1",
+          "query": "joern-rust-flow.sc"
+        }
+      },
+      "message": "Experimental lookup(input)/arg flow; discovery only.",
+      "cwe_scope": null,
+      "limitations": [
+        "Experimental lookup(input) to call named arg argument 1 profile only.",
+        "Dependency-free root Cargo crate with one explicit binary only.",
+        "Generated Cargo metadata disables build hooks and automatic target discovery.",
+        "Dependencies, workspaces, proc macros, cfg and framework coverage unqualified.",
+        "Call names do not authenticate Command ownership or prove shell execution.",
+        "Discovery only; no qualified triage, complete coverage or clean verdict.",
+        "Trusted Rust toolchain required; Cargo offline is not OS network isolation."
+      ],
+      "selection": "explicit",
+      "hooks": {}
+    },
+    {
+      "name": "rust-env-shell-v1",
+      "bindings": {
+        "rust": {
+          "rule_id": "veriflow/joern-rust-env-shell-v1",
+          "query": "joern-rust-env-shell.sc"
+        }
+      },
+      "message": "Environment value to shell command text; discovery only.",
+      "cwe_scope": null,
+      "limitations": [
+        "std::env::var literal key to chained shell command argument profile only.",
+        "Dependency-free root Cargo crate with one explicit binary only.",
+        "Generated Cargo metadata disables build hooks and automatic target discovery.",
+        "Dependencies, workspaces, proc macros, cfg and framework coverage unqualified.",
+        "Discovery only; no qualified triage, complete coverage or clean verdict.",
+        "Trusted Rust toolchain required; Cargo offline is not OS network isolation.",
+        "Chained Command::new literal sh/bash path, arg(-c), arg(value) graph forms only.",
+        "Environment attacker control and command execution are not established.",
+        "Only bounded receiver wrappers stripped; split builders/args arrays omitted.",
+        "Standard-library graph signatures and sanitizer semantics remain unqualified."
+      ],
+      "selection": "auto",
+      "hooks": {}
+    },
+    {
+      "name": "default",
+      "bindings": {
+        "c": {
+          "rule_id": "veriflow/joern-c-lookup-system-v1",
+          "query": "joern-c-flow.sc"
+        }
+      },
+      "message": "Experimental lookup(input)/system flow; discovery only.",
+      "cwe_scope": null,
+      "limitations": [
+        "Experimental lookup(input) to call named system argument 1 profile only.",
+        "Only .c/.h or .cpp/.h/.hpp files selected; other extensions omitted.",
+        "Source-only parsing; build settings and compilation databases omitted.",
+        "Call names do not authenticate system identity or prove runtime reachability.",
+        "C++ classes, templates, virtual dispatch and memory-safety rules unqualified.",
+        "Discovery only; no qualified triage, complete coverage or clean verdict.",
+        "Trusted tools required; command does not enforce OS network isolation."
+      ],
+      "selection": "explicit",
+      "hooks": {}
+    },
+    {
+      "name": "c-family-argv-system-v1",
+      "bindings": {
+        "c": {
+          "rule_id": "veriflow/joern-c-argv-system-v1",
+          "query": "joern-c-argv-system.sc"
+        },
+        "cpp": {
+          "rule_id": "veriflow/joern-cpp-argv-system-v1",
+          "query": "joern-cpp-argv-system.sc"
+        }
+      },
+      "message": "Command-line argument to system command text; discovery only.",
+      "cwe_scope": null,
+      "limitations": [
+        "Global main second char**/char*[] parameter, positive decimal index reads only.",
+        "C++ system namespace/signature is unresolved; libc identity is unqualified.",
+        "Any local system definition withholds all sinks conservatively.",
+        "Graph signatures do not authenticate libc or prove runtime reachability.",
+        "Aliases, variable indices, macros and build configurations are unqualified.",
+        "C-style C++ only; classes, templates and memory-safety coverage unqualified.",
+        "Only selected source/header suffixes copied; dependencies/builds omitted.",
+        "Discovery only; no qualified triage, complete coverage or clean verdict.",
+        "Trusted tools required; command does not enforce OS network isolation."
+      ],
+      "selection": "auto",
+      "hooks": {}
+    },
+    {
+      "name": "default",
+      "bindings": {
+        "cpp": {
+          "rule_id": "veriflow/joern-cpp-lookup-system-v1",
+          "query": "joern-cpp-flow.sc"
+        }
+      },
+      "message": "Experimental lookup(input)/system flow; discovery only.",
+      "cwe_scope": null,
+      "limitations": [
+        "Experimental lookup(input) to call named system argument 1 profile only.",
+        "Only .c/.h or .cpp/.h/.hpp files selected; other extensions omitted.",
+        "Source-only parsing; build settings and compilation databases omitted.",
+        "Call names do not authenticate system identity or prove runtime reachability.",
+        "C++ classes, templates, virtual dispatch and memory-safety rules unqualified.",
+        "Discovery only; no qualified triage, complete coverage or clean verdict.",
+        "Trusted tools required; command does not enforce OS network isolation."
+      ],
+      "selection": "explicit",
+      "hooks": {}
+    }
+  ]
+}

@@ -4,6 +4,9 @@ This workflow promotes a tested scanner query only after an LLM-origin candidate
 downstream triage and an operator has recorded its latest review as `confirmed`. Approval does
 not rewrite the original scan and does not execute generated code.
 
+Runtime Joern profiles for a CWE or an internal pattern, which have no LLM candidate, use the
+`profile-*` commands instead; see [runtime Joern profiles](runtime-joern-profiles.md).
+
 ## 1. Prepare and create a draft
 
 Prepare one Joern `.sc` query or CodeQL `.ql`/`.qls` query outside captured repository source.

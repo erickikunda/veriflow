@@ -72,6 +72,12 @@ def repository_summary(state, options):
             problems.append(f"{label}: report not published ({entry['export_error']})")
         if status == "scanned" and entry["review_policy"] is None and entry.get("candidate_count"):
             gaps.append(f"{label}: no reviewed evidence gate; advisory outcomes stay unverified")
+        elif (entry.get("review_policy") or "").startswith("runtime-native-v1:") and entry.get(
+            "candidate_count"
+        ):
+            gaps.append(
+                f"{label}: default runtime gate; path consistency only, endpoint syntax unchecked"
+            )
         triage = entry.get("triage") or {}
         if triage.get("status") in {"failed", "stopped", "not_started"}:
             problems.append(
@@ -144,6 +150,12 @@ def repository_summary(state, options):
         "by_triage_state": dict(Counter(f["triage_state"] for f in findings)),
         "by_origin": dict(Counter(f["origin"] or "unknown" for f in findings)),
         "ungated_candidates": sum(1 for f in findings if f["review_gate"] == "none"),
+        # needs_review under the default runtime gate rests on path citation only.
+        "needs_review_runtime_gate": sum(
+            1
+            for f in findings
+            if f["advisory"] == "needs_review" and f["review_gate"].startswith("runtime-native-v1:")
+        ),
         "provider_calls_this_run": triage.get("provider_calls", 0) + discovery_calls,
         "accounted_micro_usd": ledger.get("accounted_micro_usd"),
         "accounted_usd": usd(ledger.get("accounted_micro_usd")),
@@ -172,6 +184,7 @@ def repository_summary(state, options):
                 for key in (
                     "language",
                     "discovery_profile",
+                    "profile_source",
                     "review_policy",
                     "status",
                     "action",
@@ -200,7 +213,14 @@ def repository_summary(state, options):
 
 
 def run_summary(
-    results, options, *, started_at, duration_seconds, manifest_name, provider_unavailable=False
+    results,
+    options,
+    *,
+    started_at,
+    duration_seconds,
+    manifest_name,
+    provider_unavailable=False,
+    profile_catalog=None,
 ):
     statuses = Counter(item["status"] for item in results)
     accounted = [item["stats"]["accounted_micro_usd"] for item in results]
@@ -223,6 +243,7 @@ def run_summary(
         "llm_discovery": options.discovery is not None,
         "repository_statuses": dict(statuses),
         "provider_unavailable": provider_unavailable,
+        "profile_catalog": profile_catalog,
         "totals": {
             "repositories": len(results),
             "candidates": sum(item["stats"]["candidates"] for item in results),
@@ -270,7 +291,12 @@ def _sections(summary):
     if summary["report_kind"] == "pipeline_run_summary":
         totals = summary["totals"]
         settings[1:1] = [["Manifest", summary["manifest"]], ["Started", summary["started_at"]]]
+        profile_catalog = summary.get("profile_catalog") or {}
         settings += [
+            ["Profile mode", profile_catalog.get("mode", "trusted-directory")],
+            ["Approved registry version", profile_catalog.get("registry_version", 0)],
+            ["Runtime profiles", ", ".join(profile_catalog.get("runtime_profiles", [])) or "none"],
+            ["Runtime profiles skipped", len(profile_catalog.get("problems", []))],
             [
                 "Provider stopped after repeated unknown outcomes",
                 yes[summary["provider_unavailable"]],
@@ -332,6 +358,7 @@ def _sections(summary):
         ],
         ["Candidates (triaged)", f"{stats['candidates']} ({stats['triaged']})"],
         ["Candidates without a reviewed gate", stats["ungated_candidates"]],
+        ["needs_review under the default runtime gate", stats["needs_review_runtime_gate"]],
         ["Candidates without a model answer", stats["without_model_answer"]],
         [
             "Model verdicts (unverified)",

@@ -43,6 +43,9 @@ def test_migration_repeatable(store):
         "rule_drafts",
         "rule_registries",
         "rule_approvals",
+        "profile_drafts",
+        "profile_tests",
+        "profile_approvals",
         "benchmark_scorecards",
     }
     with store.engine.connect() as conn:

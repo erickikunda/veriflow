@@ -89,6 +89,7 @@ def bundle(
     llm_discovery=False,
     force_reimport=False,
     retry_unknown=False,
+    profile_mode="trusted-directory",
 ):
     pvcs = {"input": input_pvc, "reports": reports_pvc, "state": state_pvc}
     if provider == "ollama" and ollama_models_pvc:
@@ -98,7 +99,10 @@ def bundle(
         raise ValueError("Config secret must be a DNS label")
     if arch not in {"arm64", "amd64"} or not 600 <= deadline_seconds <= 7 * 86400:
         raise ValueError("Unsupported architecture or deadline")
-    env = []
+    if profile_mode not in {"trusted-directory", "approved"}:
+        raise ValueError("Profile mode must be trusted-directory or approved")
+    # Runtime profiles live on the state PVC at /state/profiles unless approved mode is set.
+    env = [{"name": "VERIFLOW_PROFILE_MODE", "value": profile_mode}]
     if provider in {"anthropic", "openai"}:
         if not api_key_secret or not re.fullmatch(DNS_LABEL, api_key_secret):
             raise ValueError("Hosted providers require --api-key-secret")
@@ -280,6 +284,9 @@ def main():
     parser.add_argument("--llm-discovery", action="store_true")
     parser.add_argument("--force-reimport", action="store_true")
     parser.add_argument("--retry-unknown", action="store_true")
+    parser.add_argument(
+        "--profile-mode", choices=["trusted-directory", "approved"], default="trusted-directory"
+    )
     args = parser.parse_args()
     data = bundle(
         args.namespace,
@@ -304,6 +311,7 @@ def main():
         llm_discovery=args.llm_discovery,
         force_reimport=args.force_reimport,
         retry_unknown=args.retry_unknown,
+        profile_mode=args.profile_mode,
     )
     with args.output.open("x") as target:
         json.dump(data, target, indent=2)

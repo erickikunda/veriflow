@@ -40,7 +40,8 @@ def test_hosted_provider_job_has_secret_env_and_bounded_egress():
     assert container["args"][:3] == ["--state-dir", "/state", "run-pipeline-from-csv"]
     assert "/reports/nightly" in container["args"] and "--llm-discovery" in container["args"]
     assert container["args"][-3:-1] == ["--joern-repair-dir", "/opt/veriflow/csharp-repair"]
-    assert container["env"][0]["valueFrom"]["secretKeyRef"]["name"] == "anthropic-key"
+    assert container["env"][0] == {"name": "VERIFLOW_PROFILE_MODE", "value": "trusted-directory"}
+    assert container["env"][1]["valueFrom"]["secretKeyRef"]["name"] == "anthropic-key"
     assert "initContainers" not in pod
     egress = data["NetworkPolicy"]["spec"]["egress"]
     assert egress[1] == {
@@ -60,7 +61,14 @@ def test_ollama_runs_as_loopback_sidecar_without_egress():
     assert {"/work", "/tmp", "/state"} <= mounts
     assert {"name": "OLLAMA_HOST", "value": "127.0.0.1:11434"} in sidecar["env"]
     assert data["NetworkPolicy"]["spec"]["egress"] == []
-    assert pod["containers"][0]["env"] == []
+    assert pod["containers"][0]["env"] == [
+        {"name": "VERIFLOW_PROFILE_MODE", "value": "trusted-directory"}
+    ]
+    approved = items(
+        render("ollama", ollama_image=OLLAMA, ollama_models_pvc="models", profile_mode="approved")
+    )
+    env = approved["Job"]["spec"]["template"]["spec"]["containers"][0]["env"]
+    assert env == [{"name": "VERIFLOW_PROFILE_MODE", "value": "approved"}]
 
 
 @pytest.mark.parametrize(

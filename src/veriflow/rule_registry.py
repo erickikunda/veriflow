@@ -300,11 +300,19 @@ def _verify_draft_artifacts(store, draft):
     return query
 
 
+def _not_found(session, draft_id, command):
+    from veriflow.persistence import ProfileDraft
+
+    if session.get(ProfileDraft, draft_id) is not None:
+        return f"Runtime profile drafts use {command}"
+    return "Rule draft not found"
+
+
 def rule_draft_status(store, draft_id):
     with store.transaction() as session:
         draft = session.get(RuleDraft, draft_id)
         if draft is None:
-            raise VeriFlowError("Rule draft not found")
+            raise VeriFlowError(_not_found(session, draft_id, "profile-status"))
         approval = session.scalar(select(RuleApproval).where(RuleApproval.draft_id == draft_id))
         result = {"draft_id": draft.id, **draft.content, "state": draft.state}
         if approval is not None:
@@ -337,7 +345,7 @@ def approve_rule_draft(store, draft_id, request, request_key):
                 }
             draft = session.get(RuleDraft, draft_id)
             if draft is None:
-                raise VeriFlowError("Rule draft not found")
+                raise VeriFlowError(_not_found(session, draft_id, "profile-approve"))
             prior = session.scalar(select(RuleApproval).where(RuleApproval.draft_id == draft_id))
             if prior is not None:
                 raise VeriFlowError("Rule draft is already approved under a different key")

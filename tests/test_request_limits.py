@@ -44,6 +44,9 @@ def test_migration_defaults_existing_budget_and_preserves_history(store, evidenc
     adapter = FakeAdapter()
     first = triage(store, bundle, policy(), adapter, "before-upgrade")
     with store.engine.begin() as connection:
+        connection.exec_driver_sql("DROP TABLE profile_approvals")
+        connection.exec_driver_sql("DROP TABLE profile_tests")
+        connection.exec_driver_sql("DROP TABLE profile_drafts")
         connection.exec_driver_sql("DROP TABLE rule_approvals")
         connection.exec_driver_sql("DROP TABLE rule_registries")
         connection.exec_driver_sql("DROP TABLE rule_drafts")

@@ -222,7 +222,7 @@ def triage_windows(
     if review_policy is not None:
         from veriflow.joern_claims import require_policy
 
-        require_policy(review_policy)
+        require_policy(review_policy, store)
     notes = compatibility(envelope or resolve_envelope(), config)
     validate_page(offset, limit)
     if not key.strip() or len(key) > 200:

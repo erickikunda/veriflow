@@ -41,6 +41,15 @@ container; this command does not acquire.
 The engine is always Joern and the language is always `auto`. State must be initialized or
 upgradeable; the command runs the Alembic upgrade itself.
 
+## Profiles
+
+Discovery runs every packaged profile of each detected language, then the active runtime
+profiles: the trusted directory (`<state-dir>/profiles`) in the default mode, and approved
+registry profiles in both modes. Start with `--profile-mode approved` (or
+`VERIFLOW_PROFILE_MODE=approved`) to run only approved runtime profiles. The `initialize` step
+logs the mode, registry version and every skipped profile; see
+[runtime Joern profiles](runtime-joern-profiles.md).
+
 ## What happens per row
 
 1. **preflight** — values are stripped as intake strips them. A repeated `repo_id` fails that

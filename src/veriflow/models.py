@@ -125,13 +125,13 @@ def read_config(path):
         ) from None
 
 
-def request_body(bundle, config, *, review_policy=None):
+def request_body(bundle, config, *, review_policy=None, store=None):
     evidence_requirements = requirements(bundle["rule_id"], bundle_engine(bundle))
     if review_policy is not None:
         from veriflow.joern_claims import policy_requirements, require_policy
 
-        require_policy(review_policy)
-        evidence_requirements = policy_requirements(review_policy)
+        require_policy(review_policy, store)
+        evidence_requirements = policy_requirements(review_policy, store)
     schema = Decision.model_json_schema()
     # Live Structured Outputs requires every property. Legacy replay may omit claims locally.
     schema["required"] = list(schema["properties"])

@@ -221,6 +221,34 @@ class RuleApproval(Base):
     content: Mapped[dict] = mapped_column(JSON)
 
 
+class ProfileDraft(Base):
+    __tablename__ = "profile_drafts"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    created_at: Mapped[str] = mapped_column(String(40))
+    state: Mapped[str] = mapped_column(String(30))
+    content: Mapped[dict] = mapped_column(JSON)
+
+
+class ProfileApproval(Base):
+    __tablename__ = "profile_approvals"
+    __table_args__ = (UniqueConstraint("request_key"),)
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    draft_id: Mapped[str] = mapped_column(ForeignKey("profile_drafts.id"), index=True)
+    registry_id: Mapped[str] = mapped_column(ForeignKey("rule_registries.id"))
+    request_key: Mapped[str] = mapped_column(String(200))
+    created_at: Mapped[str] = mapped_column(String(40))
+    content: Mapped[dict] = mapped_column(JSON)
+
+
+class ProfileTest(Base):
+    __tablename__ = "profile_tests"
+    id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    draft_id: Mapped[str] = mapped_column(ForeignKey("profile_drafts.id"), index=True)
+    created_at: Mapped[str] = mapped_column(String(40))
+    passed: Mapped[bool]
+    content: Mapped[dict] = mapped_column(JSON)
+
+
 class BenchmarkScorecard(Base):
     __tablename__ = "benchmark_scorecards"
     id: Mapped[str] = mapped_column(String(64), primary_key=True)

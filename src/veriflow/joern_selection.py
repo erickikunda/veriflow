@@ -2,42 +2,25 @@
 
 from pathlib import Path
 
+from veriflow import joern_profiles
 from veriflow.domain import VeriFlowError
 from veriflow.indexing import verified_source
 from veriflow.languages import EXTENSIONS
 
-PROFILES = {
-    "python": (
-        "python-flask-system-v1",
-        "python-flask-path-v1",
-        "python-flask-ssrf-v1",
-        "python-flask-sql-v1",
-    ),
-    "java": (
-        None,
-        "java-spring-file-path-v1",
-        "java-spring-url-stream-v1",
-        "java-spring-object-read-v1",
-        "java-spring-xml-entities-v1",
-        "java-spring-runtime-shell-v1",
-    ),
-    "csharp": (
-        None,
-        "csharp-query-commandtext-v1",
-        "csharp-query-file-read-v1",
-        "csharp-query-shell-start-v1",
-    ),
-    "javascript": ("express-request-eval-v1", "express-request-exec-v1", "express-html-send-v1"),
-    "typescript": ("express-request-eval-v1", "express-request-exec-v1", "express-html-send-v1"),
-    "go": ("go-http-shell-v1",),
-    "rust": ("rust-env-shell-v1",),
-    "c": ("c-family-argv-system-v1",),
-    "cpp": ("c-family-argv-system-v1",),
-}
+# Language -> ordered profiles for --joern-profile auto, from the profile catalog.
+PROFILES = joern_profiles.auto_plan()
 EXTENSIONS = {**EXTENSIONS, ".c": "c", ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp", ".hpp": "cpp"}
 
 
-def selection(manifest, requested="auto"):
+def plan_for(store=None):
+    """Packaged automatic plan, then active runtime profiles marked auto, per language."""
+    plan = {language: list(profiles) for language, profiles in PROFILES.items()}
+    for language, profiles in joern_profiles.auto_plan(store, runtime_only=True).items():
+        plan.setdefault(language, []).extend(profiles)
+    return plan
+
+
+def selection(manifest, requested="auto", store=None):
     detected = sorted(
         {
             EXTENSIONS[Path(f.path).suffix.lower()]
@@ -50,8 +33,9 @@ def selection(manifest, requested="auto"):
         raise VeriFlowError(
             "No recognized source language; select --language explicitly for header-only C"
         )
+    plan = plan_for(store)
     return detected, [
-        (language, profile) for language in languages for profile in PROFILES.get(language, (None,))
+        (language, profile) for language in languages for profile in plan.get(language, (None,))
     ]
 
 
@@ -77,11 +61,11 @@ def scan_selected(
             "an explicit policy needs an explicit --joern-profile"
         )
     run, manifest, _ = verified_source(store, run_id)
-    detected, plan = selection(manifest, language)
+    detected, plan = selection(manifest, language, store)
     items = []
     for selected, profile in plan:
         item = {"language": selected, "discovery_profile": profile or "default"}
-        if selected not in PROFILES:
+        if selected not in joern_profiles.LANGUAGES:
             items.append({**item, "status": "unsupported_language", "report_id": None})
             continue
         try:
@@ -96,7 +80,9 @@ def scan_selected(
                 query_timeout,
                 skip_existing,
                 profile,
-                advisory=None if advisory is None else advisory.for_profile(selected, profile),
+                advisory=None
+                if advisory is None
+                else advisory.for_profile(selected, profile, store),
             )
         except VeriFlowError as exc:
             result = {"status": "scope_error", "error": str(exc), "report_id": None}

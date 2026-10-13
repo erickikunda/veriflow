@@ -452,6 +452,10 @@ def _assess_supported(bundle, decision, policy):
                     from veriflow.joern_flask_claims import anchors as flask_anchors
 
                     located = flask_anchors(bundle, snippet, claim)
+                elif policy.get("language") == "joern_runtime":
+                    from veriflow.joern_claims import runtime_anchors
+
+                    located = runtime_anchors(bundle, snippet, claim)
                 elif policy.get("language") == "csharp":
                     from veriflow.csharp_claims import anchors as csharp_anchors
 

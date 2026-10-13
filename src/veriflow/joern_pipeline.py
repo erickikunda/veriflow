@@ -39,9 +39,7 @@ def selected_language(manifest, requested):
     extensions = {**EXTENSIONS, ".c": "c", ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp"}
     detected = {extensions.get(Path(f.path).suffix.lower()) for f in manifest.files} - {None}
     if len(detected) != 1 or not detected.issubset(SUFFIXES):
-        raise VeriFlowError(
-            "Joern auto requires one supported source language; select explicitly"
-        )
+        raise VeriFlowError("Joern auto requires one supported source language; select explicitly")
     return next(iter(detected))
 
 
@@ -80,8 +78,8 @@ def scan_run(
     requested = language
     language = selected_language(manifest, requested)
     if advisory is not None:
-        advisory = advisory.for_profile(language, discovery_profile)
-        advisory.validate_scope(language, discovery_profile)
+        advisory = advisory.for_profile(language, discovery_profile, store)
+        advisory.validate_scope(language, discovery_profile, store)
     if language == "csharp" and repair_dir is None:
         raise VeriFlowError("C# Joern requires --joern-repair-dir")
     if language == "rust" and rust_home is None:
@@ -99,6 +97,10 @@ def scan_run(
         "security_completion_verified": False,
     }
     if skip_existing:
+        from veriflow.joern_profiles import binding
+
+        # An attempt made with a different query text is not a result of this profile.
+        digest = binding(language, discovery_profile, store).query_sha256
         with store.transaction() as session:
             previous = session.scalar(
                 select(ScanAttempt)
@@ -108,6 +110,7 @@ def scan_run(
                     ScanAttempt.report["language"].as_string() == language,
                     func.coalesce(ScanAttempt.report["discovery_profile"].as_string(), "default")
                     == (discovery_profile or "default"),
+                    ScanAttempt.report["query_sha256"].as_string() == digest,
                 )
                 .order_by(ScanAttempt.created_at.desc(), ScanAttempt.id.desc())
                 .limit(1)

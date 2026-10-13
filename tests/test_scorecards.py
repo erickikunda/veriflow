@@ -92,6 +92,9 @@ def test_migration_from_six_preserves_existing_reports(store, evaluation):
     report = evaluation[3]()
     # Recreate the prior schema boundary in this isolated test database.
     with store.engine.begin() as conn:
+        conn.exec_driver_sql("DROP TABLE profile_approvals")
+        conn.exec_driver_sql("DROP TABLE profile_tests")
+        conn.exec_driver_sql("DROP TABLE profile_drafts")
         conn.exec_driver_sql("DROP TABLE rule_approvals")
         conn.exec_driver_sql("DROP TABLE rule_registries")
         conn.exec_driver_sql("DROP TABLE rule_drafts")

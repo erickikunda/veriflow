@@ -23,7 +23,7 @@ uv build                            # wheel into dist/, required before containe
 
 CLI is `uv run veriflow <command>` (entry point `veriflow.cli:app`). `--state-dir` is a
 **global** option and goes before the subcommand. `veriflow init` creates/upgrades the SQLite
-schema via Alembic (currently `0009`); run it after adding a migration.
+schema via Alembic (currently `0012`); run it after adding a migration.
 
 `veriflow doctor` reports local prerequisites without running any tool.
 
@@ -82,9 +82,14 @@ Pipeline stages, each durable and independently retrievable by ID:
 The repeatable shape (see commit "Add bounded C# file-path discovery" for a worked example):
 
 - `src/veriflow/queries/joern-<lang>-<pattern>.sc` — the bounded CPG query.
-- `src/veriflow/joern.py` — register the profile name in `discover`'s `supported_profiles`,
-  map it to its `.sc` file, and add its CWE scope / candidate message.
-- `src/veriflow/joern_selection.py` — add it to `PROFILES[language]` for `--language auto`.
+- `src/veriflow/profiles/joern-packaged.json` — add a descriptor: per-language `rule_id` and
+  query file, candidate `message`, `cwe_scope` (or `null`), `limitations`, and `selection`
+  (`auto` joins `--joern-profile auto`; list order is the automatic order). `joern.py` and
+  `joern_selection.py` read this catalog through `joern_profiles.py`; do not hard-code profiles.
+- Behaviour that needs Python support (Flask endpoint audit, C# query-source mapping) is a
+  named `hooks` entry implemented in `joern.py`; only packaged profiles may use hooks.
+- Regenerate `tests/fixtures/joern-profile-golden.json` with
+  `uv run python tests/joern_profile_golden.py --write` and review its diff.
 - `tests/fixtures/joern-<lang>-<pattern>/<case>/` — vulnerable, fixed, crossfile, disconnected,
   shadowed, unbound-source, guard-unknown … each case asserts an exact candidate count.
 - `scripts/validate_joern_<lang>_<pattern>.py` — native acceptance over those fixtures.
@@ -92,6 +97,13 @@ The repeatable shape (see commit "Add bounded C# file-path discovery" for a work
 - `docs/guides/<lang>-<pattern>-discovery.md` and a new `docs/development/slice-NNN.md`.
 
 New profiles are **advisory-unsupported** until a reviewed evidence gate exists for them.
+
+Operators can also add **runtime** Joern profiles without a code change: a descriptor and query
+in the trusted directory (`<state-dir>/profiles`, default `--profile-mode trusted-directory`),
+or approved through `profile-add` / `profile-test` / `profile-approve` (`--profile-mode
+approved`). See `docs/guides/runtime-joern-profiles.md`. Runtime profiles never use hooks.
+They get the generic `runtime-native-v1` gate by default (native/path consistency, endpoint
+syntax unchecked), not a reviewed profile-specific gate.
 
 ## Conventions
 

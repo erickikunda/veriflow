@@ -3,7 +3,7 @@
 from dataclasses import dataclass, replace
 
 from veriflow.domain import VeriFlowError
-from veriflow.joern_claims import policy_for, require_policy
+from veriflow.joern_claims import is_runtime, policy_for, require_policy
 from veriflow.models import Adapter, ModelConfig, ReplayAdapter, live_adapter, read_config
 from veriflow.persistence import TriageBudget
 
@@ -25,7 +25,8 @@ class AdvisoryOptions:
 
     def __post_init__(self):
         # None is only produced by for_profile when auto finds no reviewed gate.
-        if self.review_policy not in (AUTO_POLICY, None):
+        # Runtime gate policies need a store's catalog; they are checked in validate_scope.
+        if self.review_policy not in (AUTO_POLICY, None) and not is_runtime(self.review_policy):
             require_policy(self.review_policy)
         if not self.key.strip() or len(self.key) > 200:
             raise VeriFlowError("Advisory key must contain 1–200 characters")
@@ -37,16 +38,16 @@ class AdvisoryOptions:
         ):
             raise VeriFlowError("Advisory page requires offset >= 0 and limit 1–100")
 
-    def for_profile(self, language, discovery_profile):
+    def for_profile(self, language, discovery_profile, store=None):
         """Bind auto to one profile; an ungated profile is sent without a review policy."""
         if self.review_policy != AUTO_POLICY:
             return self
-        return replace(self, review_policy=policy_for(language, discovery_profile))
+        return replace(self, review_policy=policy_for(language, discovery_profile, store))
 
-    def validate_scope(self, language, discovery_profile):
+    def validate_scope(self, language, discovery_profile, store=None):
         if self.review_policy in (AUTO_POLICY, None):
             return
-        expected_language, profile, _, _ = require_policy(self.review_policy)
+        expected_language, profile, _, _ = require_policy(self.review_policy, store)
         if language != expected_language or (discovery_profile or "default") != profile:
             raise VeriFlowError(
                 f"Scan advisory policy requires Joern {expected_language} profile {profile}"

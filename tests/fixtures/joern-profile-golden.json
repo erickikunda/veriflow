@@ -1,0 +1,1172 @@
+{
+  "__auto_plan__": {
+    "c": [
+      "c-family-argv-system-v1"
+    ],
+    "cpp": [
+      "c-family-argv-system-v1"
+    ],
+    "csharp": [
+      "default",
+      "csharp-query-commandtext-v1",
+      "csharp-query-file-read-v1",
+      "csharp-query-shell-start-v1"
+    ],
+    "go": [
+      "go-http-shell-v1"
+    ],
+    "java": [
+      "default",
+      "java-spring-file-path-v1",
+      "java-spring-url-stream-v1",
+      "java-spring-object-read-v1",
+      "java-spring-xml-entities-v1",
+      "java-spring-runtime-shell-v1"
+    ],
+    "javascript": [
+      "express-request-eval-v1",
+      "express-request-exec-v1",
+      "express-html-send-v1"
+    ],
+    "python": [
+      "python-flask-system-v1",
+      "python-flask-path-v1",
+      "python-flask-ssrf-v1",
+      "python-flask-sql-v1"
+    ],
+    "rust": [
+      "rust-env-shell-v1"
+    ],
+    "typescript": [
+      "express-request-eval-v1",
+      "express-request-exec-v1",
+      "express-html-send-v1"
+    ]
+  },
+  "c/c-family-argv-system-v1": {
+    "adapter_version": "experimental-c-1",
+    "cwe_scope": "<absent>",
+    "discovery_profile": "c-family-argv-system-v1",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Global main second char**/char*[] parameter, positive decimal index reads only.",
+      "C++ system namespace/signature is unresolved; libc identity is unqualified.",
+      "Any local system definition withholds all sinks conservatively.",
+      "Graph signatures do not authenticate libc or prove runtime reachability.",
+      "Aliases, variable indices, macros and build configurations are unqualified.",
+      "C-style C++ only; classes, templates and memory-safety coverage unqualified.",
+      "Only selected source/header suffixes copied; dependencies/builds omitted.",
+      "Discovery only; no qualified triage, complete coverage or clean verdict.",
+      "Trusted tools required; command does not enforce OS network isolation."
+    ],
+    "message": "Command-line argument to system command text; discovery only.",
+    "query_sha256": "261fcd6189f4ae93a3e63a3114800edac6b54b47a3b257cf6c77928b13abac10",
+    "rule": "veriflow/joern-c-argv-system-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "c/csharp-query-commandtext-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/csharp-query-file-read-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/csharp-query-shell-start-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/default": {
+    "adapter_version": "experimental-c-1",
+    "cwe_scope": "<absent>",
+    "discovery_profile": "default",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Experimental lookup(input) to call named system argument 1 profile only.",
+      "Only .c/.h or .cpp/.h/.hpp files selected; other extensions omitted.",
+      "Source-only parsing; build settings and compilation databases omitted.",
+      "Call names do not authenticate system identity or prove runtime reachability.",
+      "C++ classes, templates, virtual dispatch and memory-safety rules unqualified.",
+      "Discovery only; no qualified triage, complete coverage or clean verdict.",
+      "Trusted tools required; command does not enforce OS network isolation."
+    ],
+    "message": "Experimental lookup(input)/system flow; discovery only.",
+    "query_sha256": "68f6a58acc4c4c40170b73f0b3bb0f9ccb3b8faa816dd1606b51646bfd82981a",
+    "rule": "veriflow/joern-c-lookup-system-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "c/express-html-send-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/express-request-eval-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/express-request-exec-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/go-http-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/java-spring-file-path-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/java-spring-object-read-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/java-spring-runtime-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/java-spring-url-stream-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/java-spring-xml-entities-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/python-flask-path-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/python-flask-sql-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/python-flask-ssrf-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/python-flask-system-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/rust-env-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "c/unknown-profile-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/c-family-argv-system-v1": {
+    "adapter_version": "experimental-cpp-1",
+    "cwe_scope": "<absent>",
+    "discovery_profile": "c-family-argv-system-v1",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Global main second char**/char*[] parameter, positive decimal index reads only.",
+      "C++ system namespace/signature is unresolved; libc identity is unqualified.",
+      "Any local system definition withholds all sinks conservatively.",
+      "Graph signatures do not authenticate libc or prove runtime reachability.",
+      "Aliases, variable indices, macros and build configurations are unqualified.",
+      "C-style C++ only; classes, templates and memory-safety coverage unqualified.",
+      "Only selected source/header suffixes copied; dependencies/builds omitted.",
+      "Discovery only; no qualified triage, complete coverage or clean verdict.",
+      "Trusted tools required; command does not enforce OS network isolation."
+    ],
+    "message": "Command-line argument to system command text; discovery only.",
+    "query_sha256": "ef6b71f9a852adeb19cc6075c74052293c3775406f4d3d8294d880ccb8c306e9",
+    "rule": "veriflow/joern-cpp-argv-system-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "cpp/csharp-query-commandtext-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/csharp-query-file-read-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/csharp-query-shell-start-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/default": {
+    "adapter_version": "experimental-cpp-1",
+    "cwe_scope": "<absent>",
+    "discovery_profile": "default",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Experimental lookup(input) to call named system argument 1 profile only.",
+      "Only .c/.h or .cpp/.h/.hpp files selected; other extensions omitted.",
+      "Source-only parsing; build settings and compilation databases omitted.",
+      "Call names do not authenticate system identity or prove runtime reachability.",
+      "C++ classes, templates, virtual dispatch and memory-safety rules unqualified.",
+      "Discovery only; no qualified triage, complete coverage or clean verdict.",
+      "Trusted tools required; command does not enforce OS network isolation."
+    ],
+    "message": "Experimental lookup(input)/system flow; discovery only.",
+    "query_sha256": "f749a03ec49b88bda06af4b9c1e7beb3971d02f89ac604904e2402f4a01769d4",
+    "rule": "veriflow/joern-cpp-lookup-system-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "cpp/express-html-send-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/express-request-eval-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/express-request-exec-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/go-http-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/java-spring-file-path-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/java-spring-object-read-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/java-spring-runtime-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/java-spring-url-stream-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/java-spring-xml-entities-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/python-flask-path-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/python-flask-sql-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/python-flask-ssrf-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/python-flask-system-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/rust-env-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "cpp/unknown-profile-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "csharp/c-family-argv-system-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "csharp/csharp-query-commandtext-v1": {
+    "adapter_version": "experimental-csharp-1",
+    "cwe_scope": [
+      "CWE-89"
+    ],
+    "discovery_profile": "csharp-query-commandtext-v1",
+    "endpoint_audit": false,
+    "hooks": {
+      "require_query_source": true
+    },
+    "limitations": [
+      "Parameter flows filtered by mapped FromQuery/classic HTTP syntax facts.",
+      "Method and parameter names unrestricted; runtime route exposure unverified.",
+      "CommandText property name only; database type and execution unverified.",
+      "Raw graph source counts include parameters before syntax filtering.",
+      "Syntax parser limits/ambiguity can omit paths; advisory unsupported.",
+      "Discovery only; no complete coverage or clean verdict."
+    ],
+    "message": "CWE-89: C# query-binding syntax to CommandText; candidate.",
+    "query_sha256": "26b7c480f9b58288d7d0347255a54e195f214a71db76e25aaf443db68a2acb4b",
+    "rule": "veriflow/joern-csharp-query-commandtext-v1",
+    "source_mapping": true,
+    "status": "partial"
+  },
+  "csharp/csharp-query-file-read-v1": {
+    "adapter_version": "experimental-csharp-1",
+    "cwe_scope": [
+      "CWE-22"
+    ],
+    "discovery_profile": "csharp-query-file-read-v1",
+    "endpoint_audit": false,
+    "hooks": {
+      "require_query_source": true
+    },
+    "limitations": [
+      "Mapped query-binding source to fully qualified System.IO.File.ReadAllText syntax.",
+      "Short names and local System/IO/File type lookalikes excluded.",
+      "Frontend API signature unresolved; receiver text is not binding proof.",
+      "Runtime API identity, confinement, guards and file access unverified.",
+      "Raw graph counts precede syntax filtering; parser limits can omit paths.",
+      "Other file APIs and query forms omitted; advisory unsupported.",
+      "Discovery only; no proven directory escape or clean verdict."
+    ],
+    "message": "CWE-22: C# query input to File.ReadAllText; candidate.",
+    "query_sha256": "c926db837aa6c56d4b5610a3ea264024d213765389e2f0fd618ae0a02ffb1a5f",
+    "rule": "veriflow/joern-csharp-query-file-read-v1",
+    "source_mapping": true,
+    "status": "partial"
+  },
+  "csharp/csharp-query-shell-start-v1": {
+    "adapter_version": "experimental-csharp-1",
+    "cwe_scope": [
+      "CWE-78"
+    ],
+    "discovery_profile": "csharp-query-shell-start-v1",
+    "endpoint_audit": false,
+    "hooks": {
+      "require_query_source": true
+    },
+    "limitations": [
+      "Mapped query-source to fully qualified Process.Start shell argument syntax.",
+      "Literal sh/bash executable and argument expression beginning with literal -c.",
+      "Runtime API identity, argument splitting and exploitability unverified.",
+      "Local System/Diagnostics/Process types excluded; other process forms omitted.",
+      "Raw counts precede syntax filtering; advisory unsupported; no clean verdict."
+    ],
+    "message": "CWE-78: C# query input to Process.Start shell text; candidate.",
+    "query_sha256": "d8322e3a064997496af8c17876d738341a65c8c2e07e32064ab686e6ec1bc4fd",
+    "rule": "veriflow/joern-csharp-query-shell-start-v1",
+    "source_mapping": true,
+    "status": "partial"
+  },
+  "csharp/default": {
+    "adapter_version": "experimental-csharp-1",
+    "cwe_scope": "<absent>",
+    "discovery_profile": "default",
+    "endpoint_audit": false,
+    "hooks": {
+      "require_query_source": false
+    },
+    "limitations": [
+      "Experimental Lookup(name) parameter to CommandText assignment profile only.",
+      "C# source only; dependencies, builds and other languages omitted.",
+      "Syntax facts do not authenticate framework or database types.",
+      "Only uniquely mapped paths published; unsupported paths retained in raw output.",
+      "Discovery only; no qualified triage, complete coverage or clean verdict.",
+      "Trusted tools required; receipt hashes do not authenticate the publisher.",
+      "Network not isolated by this command; automatic result reuse disabled."
+    ],
+    "message": "Experimental Lookup(name) to CommandText flow; discovery only.",
+    "query_sha256": "065259962b0e2abf43ea386e3efc1002ba514a29e3a747c4448b31d983dcc563",
+    "rule": "veriflow/joern-csharp-lookup-commandtext-v1",
+    "source_mapping": true,
+    "status": "partial"
+  },
+  "csharp/express-html-send-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "csharp/express-request-eval-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "csharp/express-request-exec-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "csharp/go-http-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "csharp/java-spring-file-path-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "csharp/java-spring-object-read-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "csharp/java-spring-runtime-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "csharp/java-spring-url-stream-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "csharp/java-spring-xml-entities-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "csharp/python-flask-path-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "csharp/python-flask-sql-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "csharp/python-flask-ssrf-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "csharp/python-flask-system-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "csharp/rust-env-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "csharp/unknown-profile-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/c-family-argv-system-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/csharp-query-commandtext-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/csharp-query-file-read-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/csharp-query-shell-start-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/default": {
+    "adapter_version": "experimental-go-1",
+    "cwe_scope": "<absent>",
+    "discovery_profile": "default",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Experimental lookup(input) to call named Command argument 3 profile only.",
+      "Only .go files and go.mod metadata copied; dependencies/builds omitted.",
+      "Call names do not authenticate os/exec.Command or prove shell execution.",
+      "Frameworks, cgo, build tags and advanced language semantics unqualified.",
+      "Discovery only; no qualified triage, complete coverage or clean verdict.",
+      "Version layout checked; trusted operator tooling required.",
+      "Go proxy/checksum downloads disabled; OS network isolation still required."
+    ],
+    "message": "Experimental lookup(input)/Command flow; discovery only.",
+    "query_sha256": "c5db966054c8e5c2d8bfddf38f2aa044211f77de41254eabe3942c2148b1a198",
+    "rule": "veriflow/joern-go-lookup-command-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "go/express-html-send-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/express-request-eval-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/express-request-exec-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/go-http-shell-v1": {
+    "adapter_version": "experimental-go-1",
+    "cwe_scope": "<absent>",
+    "discovery_profile": "go-http-shell-v1",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "net/http Request FormValue/PostFormValue graph signatures only.",
+      "os/exec.Command with literal sh/bash or /bin/sh /bin/bash, then -c only.",
+      "Command construction does not prove execution or HTTP route reachability.",
+      "Graph identities, dynamic mutation and sanitization are not qualified.",
+      "CommandContext, other shells, flags and HTTP sources omitted.",
+      "Only .go and go.mod copied; dependencies/builds and mixed languages omitted.",
+      "Discovery only; no qualified triage, complete coverage or clean verdict.",
+      "Go downloads disabled; command does not enforce OS network isolation."
+    ],
+    "message": "Go HTTP form input to shell command text; discovery only.",
+    "query_sha256": "a62acfe23b7a6c32ad63eeaf5d74b70c20774b64c20a551b85c004afdd4b0768",
+    "rule": "veriflow/joern-go-http-shell-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "go/java-spring-file-path-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/java-spring-object-read-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/java-spring-runtime-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/java-spring-url-stream-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/java-spring-xml-entities-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/python-flask-path-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/python-flask-sql-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/python-flask-ssrf-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/python-flask-system-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/rust-env-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "go/unknown-profile-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "java/c-family-argv-system-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "java/csharp-query-commandtext-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "java/csharp-query-file-read-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "java/csharp-query-shell-start-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "java/default": {
+    "adapter_version": "experimental-4",
+    "cwe_scope": "<absent>",
+    "discovery_profile": "default",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Public Spring GetMapping String RequestParam only; other sources omitted.",
+      "Exact JDBC Statement.executeQuery(String) graph signature only.",
+      "Java source only; dependencies, builds and other languages omitted.",
+      "Discovery only; no qualified triage or clean security verdict.",
+      "Version layout checked; installed tool contents not cryptographically verified.",
+      "Network not isolated; automatic result reuse disabled."
+    ],
+    "message": "Spring GET parameter to JDBC SQL argument flow; discovery only.",
+    "query_sha256": "4279fea2e513b97c02a9b8cc77f61bb35e4a982d8d77753e3877dca8082aff98",
+    "rule": "veriflow/joern-spring-get-jdbc-sql-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "java/express-html-send-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "java/express-request-eval-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "java/express-request-exec-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "java/go-http-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "java/java-spring-file-path-v1": {
+    "adapter_version": "experimental-4",
+    "cwe_scope": [
+      "CWE-22"
+    ],
+    "discovery_profile": "java-spring-file-path-v1",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Spring GET String RequestParam to Files.readAllBytes(Path) only.",
+      "Modeled Path propagation is not proof of directory escape or runtime identity.",
+      "Confinement, guards and deployment access unverified; advisory unsupported.",
+      "Discovery only; incomplete coverage and no clean verdict."
+    ],
+    "message": "CWE-22: Spring input to Files.readAllBytes; escape unverified.",
+    "query_sha256": "df9c5484bdf7bcf4153cfdcd60503196418e7cac04178a982790bc8e28489670",
+    "rule": "veriflow/joern-spring-get-file-path-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "java/java-spring-object-read-v1": {
+    "adapter_version": "experimental-4",
+    "cwe_scope": [
+      "CWE-502"
+    ],
+    "discovery_profile": "java-spring-object-read-v1",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Spring GET String RequestParam to exact ObjectInputStream.readObject receiver.",
+      "Base64 and byte-stream constructor propagation modeled; runtime unverified.",
+      "Object filters, allowlists, gadget classes and exploitability unverified.",
+      "Other sources, serializers and readUnshared omitted; advisory unsupported.",
+      "Discovery only; incomplete coverage and no clean verdict."
+    ],
+    "message": "CWE-502: Spring input to ObjectInputStream.readObject; candidate.",
+    "query_sha256": "ea792e97086336183e6e43385dd79ed038732e03d6f92debbedf2154d4bd32bc",
+    "rule": "veriflow/joern-spring-get-object-read-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "java/java-spring-runtime-shell-v1": {
+    "adapter_version": "experimental-4",
+    "cwe_scope": [
+      "CWE-78"
+    ],
+    "discovery_profile": "java-spring-runtime-shell-v1",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Spring GET String RequestParam to Runtime.exec(String[]) shell text only.",
+      "Inline three-element array: literal sh/bash, -c, then command text.",
+      "Other overloads, ProcessBuilder, array variables and Windows shells omitted.",
+      "Guards, executable identity and runtime exploitability unverified.",
+      "Discovery only; advisory unsupported and no clean verdict."
+    ],
+    "message": "CWE-78: Spring input to Runtime.exec shell text; candidate.",
+    "query_sha256": "9bcd4814ec016c2c2ba3f3c4a696f251e2d4e617e7a0c07d7038bd0a2985e3ac",
+    "rule": "veriflow/joern-spring-get-runtime-shell-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "java/java-spring-url-stream-v1": {
+    "adapter_version": "experimental-4",
+    "cwe_scope": [
+      "CWE-918"
+    ],
+    "discovery_profile": "java-spring-url-stream-v1",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Spring GET String RequestParam to exact URL.openStream receiver only.",
+      "URL constructor propagation is modeled; runtime access is unverified.",
+      "Redirects, DNS, destination policy and egress unverified; advisory unsupported.",
+      "Other HTTP clients and source bindings omitted; no clean verdict."
+    ],
+    "message": "CWE-918: Spring input to URL.openStream; destination unverified.",
+    "query_sha256": "f8cc5afad7f95b08e0099230628f5d33814d58ed3fb0e84be0eb1b461716b343",
+    "rule": "veriflow/joern-spring-get-url-stream-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "java/java-spring-xml-entities-v1": {
+    "adapter_version": "experimental-4",
+    "cwe_scope": [
+      "CWE-611"
+    ],
+    "discovery_profile": "java-spring-xml-entities-v1",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Spring GET String RequestParam to DocumentBuilder.parse(InputSource) only.",
+      "Factory external-general-entities=true observed through direct local bindings.",
+      "Configuration ordering, reassignments, overrides and resolvers unverified.",
+      "Default/unknown settings and other XML APIs omitted; advisory unsupported.",
+      "External access restrictions and actual entity resolution unverified.",
+      "Discovery only; no clean verdict or proven exploitability."
+    ],
+    "message": "CWE-611: Spring input to entity-enabled DOM; candidate.",
+    "query_sha256": "c7e5e9d0343e6907a4fa3e939ed603fb4ac4a3e22ac7539c993edce3e82370b7",
+    "rule": "veriflow/joern-spring-get-xml-entities-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "java/python-flask-path-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "java/python-flask-sql-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "java/python-flask-ssrf-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "java/python-flask-system-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "java/rust-env-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "java/unknown-profile-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "javascript/c-family-argv-system-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "javascript/csharp-query-commandtext-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "javascript/csharp-query-file-read-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "javascript/csharp-query-shell-start-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "javascript/default": {
+    "adapter_version": "experimental-javascript-1",
+    "cwe_scope": "<absent>",
+    "discovery_profile": "default",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Experimental lookup(input) parameter to call named eval argument profile only.",
+      "Only .js copied; mixed-language flows and JSX/TSX omitted.",
+      "Frameworks, project configuration, dependencies and builds omitted.",
+      "Call names do not authenticate builtin eval or prove runtime reachability.",
+      "Discovery only; no qualified triage, complete coverage or clean verdict.",
+      "Version layout checked; trusted operator tooling required.",
+      "Network not isolated by this command; automatic result reuse disabled."
+    ],
+    "message": "Experimental lookup(input)/eval flow; discovery only.",
+    "query_sha256": "8860bd32e33d36c55c8935c6de4111cef2e32399dad18ce753c885ae7f3efc1f",
+    "rule": "veriflow/joern-javascript-lookup-eval-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "javascript/express-html-send-v1": {
+    "adapter_version": "experimental-javascript-1",
+    "cwe_scope": [
+      "CWE-79"
+    ],
+    "discovery_profile": "express-html-send-v1",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Express get/post inline callback request fields to response.type(html).send only.",
+      "Literal html/text/html and direct callback response receiver required.",
+      "Encoding, response mutations, middleware and browser execution unverified.",
+      "No runtime type guarantee; graph bindings are not runtime identity proof.",
+      "Other response APIs, templates and JSX/TSX omitted; advisory unsupported.",
+      "Discovery only; no clean verdict or proven exploitability."
+    ],
+    "message": "CWE-79: Express input to explicit HTML response; discovery only.",
+    "query_sha256": "c0a9f6e418b7a719e1d30de45cbd4a83d2db6279e7a07324e969cb5a614d3153",
+    "rule": "veriflow/joern-javascript-express-html-send-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "javascript/express-request-eval-v1": {
+    "adapter_version": "experimental-javascript-1",
+    "cwe_scope": "<absent>",
+    "discovery_profile": "express-request-eval-v1",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Express graph signatures for get/post and inline callback argument 2 only.",
+      "Factory import aliases are not qualified; dependencies/builds are omitted.",
+      "First callback parameter query/body/params field reads; builtin eval signature.",
+      "Graph resolution is not proof of package identity or HTTP/runtime reachability.",
+      "Routers, middleware, named callbacks, computed properties and JSX/TSX omitted.",
+      "Discovery only; no qualified triage, complete coverage or clean verdict.",
+      "Trusted tools required; command does not enforce OS network isolation."
+    ],
+    "message": "Express request property to builtin eval; discovery only.",
+    "query_sha256": "3080c5898e729a93dbe6331ea1490b0159a763f642c41f347290e3f3a4f7b22a",
+    "rule": "veriflow/joern-javascript-express-eval-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "javascript/express-request-exec-v1": {
+    "adapter_version": "experimental-javascript-1",
+    "cwe_scope": [
+      "CWE-78"
+    ],
+    "discovery_profile": "express-request-exec-v1",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Express get/post inline callbacks and query/body/params field reads only.",
+      "Resolved child_process:exec first argument; other execution APIs omitted.",
+      "Graph resolution does not prove runtime identity or HTTP exposure.",
+      "Shell command candidate; guards unverified; advisory unsupported.",
+      "Routers, middleware, computed fields and JSX/TSX omitted; no clean verdict."
+    ],
+    "message": "CWE-78: Express input to child_process.exec; discovery only.",
+    "query_sha256": "6da6cef8acbf50ca6eb623ac759b471cc215f7bdb60d6b2a35fce6802c884d5f",
+    "rule": "veriflow/joern-javascript-express-exec-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "javascript/go-http-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "javascript/java-spring-file-path-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "javascript/java-spring-object-read-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "javascript/java-spring-runtime-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "javascript/java-spring-url-stream-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "javascript/java-spring-xml-entities-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "javascript/python-flask-path-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "javascript/python-flask-sql-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "javascript/python-flask-ssrf-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "javascript/python-flask-system-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "javascript/rust-env-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "javascript/unknown-profile-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "python/c-family-argv-system-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "python/csharp-query-commandtext-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "python/csharp-query-file-read-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "python/csharp-query-shell-start-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "python/default": {
+    "adapter_version": "experimental-python-1",
+    "cwe_scope": "<absent>",
+    "discovery_profile": "default",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Experimental lookup(input) parameter to call named system argument profile only.",
+      "Python source only; frameworks, dependencies and other languages omitted.",
+      "Call names do not authenticate os.system or prove runtime reachability.",
+      "Discovery only; no qualified triage, complete coverage or clean verdict.",
+      "Version layout checked; trusted operator tooling required.",
+      "Network not isolated by this command; automatic result reuse disabled."
+    ],
+    "message": "Experimental lookup(input)/system flow; discovery only.",
+    "query_sha256": "33380e448d755a8df32d3516b9a747e62800a4e9e9612513c1858f8e874a05da",
+    "rule": "veriflow/joern-python-lookup-system-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "python/express-html-send-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "python/express-request-eval-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "python/express-request-exec-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "python/go-http-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "python/java-spring-file-path-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "python/java-spring-object-read-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "python/java-spring-runtime-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "python/java-spring-url-stream-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "python/java-spring-xml-entities-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "python/python-flask-path-v1": {
+    "adapter_version": "experimental-python-1",
+    "cwe_scope": [
+      "CWE-22"
+    ],
+    "discovery_profile": "python-flask-path-v1",
+    "endpoint_audit": true,
+    "hooks": {
+      "flask_parse": [
+        "file_paths"
+      ]
+    },
+    "limitations": [
+      "CWE-22 candidate: Flask args/form.get to unshadowed open read-path argument.",
+      "Single-line calls, positional paths, optional constant read mode only.",
+      "Directory confinement, guards and runtime builtin identity unverified.",
+      "Discovery only; advisory unsupported; no clean verdict or complete coverage."
+    ],
+    "message": "CWE-22: Flask input to file path; directory escape unverified.",
+    "query_sha256": "7cc5f1df291e8335ab0b4227008d947ac649afe7577f409cf97ee6e4821c5aa1",
+    "rule": "veriflow/joern-python-flask-path-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "python/python-flask-sql-v1": {
+    "adapter_version": "experimental-python-1",
+    "cwe_scope": [
+      "CWE-89"
+    ],
+    "discovery_profile": "python-flask-sql-v1",
+    "endpoint_audit": true,
+    "hooks": {
+      "flask_parse": [
+        "sql_queries"
+      ]
+    },
+    "limitations": [
+      "Flask input to sqlite3.connect(literal).execute positional SQL text only.",
+      "Bound values are not SQL text; cursor variables and other drivers unsupported.",
+      "SQL syntax, runtime identity and sanitizer effectiveness unverified.",
+      "Discovery only; advisory unsupported; incomplete coverage and no clean verdict."
+    ],
+    "message": "CWE-89: Flask input to sqlite3 SQL text; exploitability unverified.",
+    "query_sha256": "d1cb15569536f76e22733ab36018834e2379f62f53b8132315145ff45b543e14",
+    "rule": "veriflow/joern-python-flask-sql-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "python/python-flask-ssrf-v1": {
+    "adapter_version": "experimental-python-1",
+    "cwe_scope": [
+      "CWE-918"
+    ],
+    "discovery_profile": "python-flask-ssrf-v1",
+    "endpoint_audit": true,
+    "hooks": {
+      "flask_parse": [
+        "http_urls"
+      ]
+    },
+    "limitations": [
+      "Flask args/form.get to imported requests.get positional URL only.",
+      "Destination restrictions, redirects, DNS and runtime egress unverified.",
+      "Single-line calls; optional positive literal timeout only; aliases supported.",
+      "Discovery only; advisory unsupported; incomplete coverage and no clean verdict."
+    ],
+    "message": "CWE-918: Flask input to requests.get URL; destination unverified.",
+    "query_sha256": "8c4f82071aedd136d1e98a9e9db805b51d5877d28d430a8625b114a7dcd76611",
+    "rule": "veriflow/joern-python-flask-ssrf-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "python/python-flask-system-v1": {
+    "adapter_version": "experimental-python-1",
+    "cwe_scope": "<absent>",
+    "discovery_profile": "python-flask-system-v1",
+    "endpoint_audit": true,
+    "hooks": {
+      "flask_parse": []
+    },
+    "limitations": [
+      "Single-line Flask request.args/form.get(string) to os.system argument only.",
+      "Top-level imports and no obvious rebinding required; aliases supported.",
+      "Dynamic monkeypatching, module resolution and HTTP reachability unqualified.",
+      "Ambiguous graph endpoints withheld; synthetic intermediate nodes retained.",
+      "Discovery only; no qualified triage, complete coverage or clean verdict.",
+      "Trusted tools required; command does not enforce OS network isolation."
+    ],
+    "message": "Flask request input to os.system; discovery only.",
+    "query_sha256": "9271c4159da762f0236b8e23ffcc5d9a49a370847e67284308da897020419393",
+    "rule": "veriflow/joern-python-flask-system-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "python/rust-env-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "python/unknown-profile-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/c-family-argv-system-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/csharp-query-commandtext-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/csharp-query-file-read-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/csharp-query-shell-start-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/default": {
+    "adapter_version": "experimental-rust-1",
+    "cwe_scope": "<absent>",
+    "discovery_profile": "default",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Experimental lookup(input) to call named arg argument 1 profile only.",
+      "Dependency-free root Cargo crate with one explicit binary only.",
+      "Generated Cargo metadata disables build hooks and automatic target discovery.",
+      "Dependencies, workspaces, proc macros, cfg and framework coverage unqualified.",
+      "Call names do not authenticate Command ownership or prove shell execution.",
+      "Discovery only; no qualified triage, complete coverage or clean verdict.",
+      "Trusted Rust toolchain required; Cargo offline is not OS network isolation."
+    ],
+    "message": "Experimental lookup(input)/arg flow; discovery only.",
+    "query_sha256": "a118ffb89727081e79098ff48a86a65745a07c8a8f322f5da2b9c006e7351641",
+    "rule": "veriflow/joern-rust-lookup-arg-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "rust/express-html-send-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/express-request-eval-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/express-request-exec-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/go-http-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/java-spring-file-path-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/java-spring-object-read-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/java-spring-runtime-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/java-spring-url-stream-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/java-spring-xml-entities-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/python-flask-path-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/python-flask-sql-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/python-flask-ssrf-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/python-flask-system-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "rust/rust-env-shell-v1": {
+    "adapter_version": "experimental-rust-1",
+    "cwe_scope": "<absent>",
+    "discovery_profile": "rust-env-shell-v1",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "std::env::var literal key to chained shell command argument profile only.",
+      "Dependency-free root Cargo crate with one explicit binary only.",
+      "Generated Cargo metadata disables build hooks and automatic target discovery.",
+      "Dependencies, workspaces, proc macros, cfg and framework coverage unqualified.",
+      "Discovery only; no qualified triage, complete coverage or clean verdict.",
+      "Trusted Rust toolchain required; Cargo offline is not OS network isolation.",
+      "Chained Command::new literal sh/bash path, arg(-c), arg(value) graph forms only.",
+      "Environment attacker control and command execution are not established.",
+      "Only bounded receiver wrappers stripped; split builders/args arrays omitted.",
+      "Standard-library graph signatures and sanitizer semantics remain unqualified."
+    ],
+    "message": "Environment value to shell command text; discovery only.",
+    "query_sha256": "c90485dd101edfd3d9c3c04800cbc03817d9a75fbbfa19a199ae7ceee1150049",
+    "rule": "veriflow/joern-rust-env-shell-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "rust/unknown-profile-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "typescript/c-family-argv-system-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "typescript/csharp-query-commandtext-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "typescript/csharp-query-file-read-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "typescript/csharp-query-shell-start-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "typescript/default": {
+    "adapter_version": "experimental-typescript-1",
+    "cwe_scope": "<absent>",
+    "discovery_profile": "default",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Experimental lookup(input) parameter to call named eval argument profile only.",
+      "Only .ts copied; mixed-language flows and JSX/TSX omitted.",
+      "Frameworks, project configuration, dependencies and builds omitted.",
+      "Call names do not authenticate builtin eval or prove runtime reachability.",
+      "Discovery only; no qualified triage, complete coverage or clean verdict.",
+      "Version layout checked; trusted operator tooling required.",
+      "Network not isolated by this command; automatic result reuse disabled."
+    ],
+    "message": "Experimental lookup(input)/eval flow; discovery only.",
+    "query_sha256": "4a298730c4f20d5dce7f076ebf5a8ec83f69a1fafdf22b948c6986d71c88bf96",
+    "rule": "veriflow/joern-typescript-lookup-eval-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "typescript/express-html-send-v1": {
+    "adapter_version": "experimental-typescript-1",
+    "cwe_scope": [
+      "CWE-79"
+    ],
+    "discovery_profile": "express-html-send-v1",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Express get/post inline callback request fields to response.type(html).send only.",
+      "Literal html/text/html and direct callback response receiver required.",
+      "Encoding, response mutations, middleware and browser execution unverified.",
+      "No runtime type guarantee; graph bindings are not runtime identity proof.",
+      "Other response APIs, templates and JSX/TSX omitted; advisory unsupported.",
+      "Discovery only; no clean verdict or proven exploitability."
+    ],
+    "message": "CWE-79: Express input to explicit HTML response; discovery only.",
+    "query_sha256": "0b410d265578c79c9c38112eaa2f0265620e7dd40ce57c2385cd28187446ee1d",
+    "rule": "veriflow/joern-typescript-express-html-send-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "typescript/express-request-eval-v1": {
+    "adapter_version": "experimental-typescript-1",
+    "cwe_scope": "<absent>",
+    "discovery_profile": "express-request-eval-v1",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Express graph signatures for get/post and inline callback argument 2 only.",
+      "Factory import aliases are not qualified; dependencies/builds are omitted.",
+      "First callback parameter query/body/params field reads; builtin eval signature.",
+      "Graph resolution is not proof of package identity or HTTP/runtime reachability.",
+      "Routers, middleware, named callbacks, computed properties and JSX/TSX omitted.",
+      "Discovery only; no qualified triage, complete coverage or clean verdict.",
+      "Trusted tools required; command does not enforce OS network isolation."
+    ],
+    "message": "Express request property to builtin eval; discovery only.",
+    "query_sha256": "5c3ed097564ca2b57ee368fd29431bd5aa640eede99a4d96d17fc3988559d61a",
+    "rule": "veriflow/joern-typescript-express-eval-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "typescript/express-request-exec-v1": {
+    "adapter_version": "experimental-typescript-1",
+    "cwe_scope": [
+      "CWE-78"
+    ],
+    "discovery_profile": "express-request-exec-v1",
+    "endpoint_audit": false,
+    "hooks": {},
+    "limitations": [
+      "Express get/post inline callbacks and query/body/params field reads only.",
+      "Resolved child_process:exec first argument; other execution APIs omitted.",
+      "Graph resolution does not prove runtime identity or HTTP exposure.",
+      "Shell command candidate; guards unverified; advisory unsupported.",
+      "Routers, middleware, computed fields and JSX/TSX omitted; no clean verdict."
+    ],
+    "message": "CWE-78: Express input to child_process.exec; discovery only.",
+    "query_sha256": "2788efdf975400e3afe9790323af5e2faa4cc21c8f7a676c072bcd2862523bb1",
+    "rule": "veriflow/joern-typescript-express-exec-v1",
+    "source_mapping": false,
+    "status": "partial"
+  },
+  "typescript/go-http-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "typescript/java-spring-file-path-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "typescript/java-spring-object-read-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "typescript/java-spring-runtime-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "typescript/java-spring-url-stream-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "typescript/java-spring-xml-entities-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "typescript/python-flask-path-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "typescript/python-flask-sql-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "typescript/python-flask-ssrf-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "typescript/python-flask-system-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "typescript/rust-env-shell-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  },
+  "typescript/unknown-profile-v1": {
+    "error": "Unsupported Joern discovery profile/language"
+  }
+}

@@ -6,10 +6,10 @@ import os
 import signal
 import subprocess
 from collections import Counter
-from importlib.resources import files
 from pathlib import Path
 from uuid import uuid4
 
+from veriflow import joern_profiles
 from veriflow.domain import VeriFlowError
 from veriflow.indexing import verified_source
 from veriflow.intake import now
@@ -134,7 +134,7 @@ def discovery_coverage(doc, source, selected, language="java"):
     }
 
 
-def to_sarif(raw, source, manifest, language="java", rule=RULE):
+def to_sarif(raw, source, manifest, language="java", rule=RULE, message=None):
     """Preserve recorded flow order; reject invalid references instead of inventing nodes."""
     if len(raw) > MAX_SARIF_BYTES:
         raise VeriFlowError("Joern output exceeds 16 MiB")
@@ -170,57 +170,7 @@ def to_sarif(raw, source, manifest, language="java", rule=RULE):
             results.append(
                 {
                     "ruleId": rule,
-                    "message": {
-                        "text": (
-                            "CWE-89: Flask input to sqlite3 SQL text; exploitability unverified."
-                            if rule == "veriflow/joern-python-flask-sql-v1"
-                            else "CWE-918: Flask input to requests.get URL; destination unverified."
-                            if rule == "veriflow/joern-python-flask-ssrf-v1"
-                            else "CWE-78: C# query input to Process.Start shell text; candidate."
-                            if rule == "veriflow/joern-csharp-query-shell-start-v1"
-                            else "CWE-22: C# query input to File.ReadAllText; candidate."
-                            if rule == "veriflow/joern-csharp-query-file-read-v1"
-                            else "CWE-89: C# query-binding syntax to CommandText; candidate."
-                            if rule == "veriflow/joern-csharp-query-commandtext-v1"
-                            else "CWE-78: Spring input to Runtime.exec shell text; candidate."
-                            if rule == "veriflow/joern-spring-get-runtime-shell-v1"
-                            else "CWE-611: Spring input to entity-enabled DOM; candidate."
-                            if rule == "veriflow/joern-spring-get-xml-entities-v1"
-                            else "CWE-502: Spring input to ObjectInputStream.readObject; candidate."
-                            if rule == "veriflow/joern-spring-get-object-read-v1"
-                            else "CWE-918: Spring input to URL.openStream; destination unverified."
-                            if rule == "veriflow/joern-spring-get-url-stream-v1"
-                            else "CWE-22: Spring input to Files.readAllBytes; escape unverified."
-                            if rule == "veriflow/joern-spring-get-file-path-v1"
-                            else "CWE-22: Flask input to file path; directory escape unverified."
-                            if rule == "veriflow/joern-python-flask-path-v1"
-                            else "Environment value to shell command text; discovery only."
-                            if rule == "veriflow/joern-rust-env-shell-v1"
-                            else "Command-line argument to system command text; discovery only."
-                            if rule.endswith("-argv-system-v1")
-                            else "Go HTTP form input to shell command text; discovery only."
-                            if rule == "veriflow/joern-go-http-shell-v1"
-                            else "CWE-79: Express input to explicit HTML response; discovery only."
-                            if rule.endswith("-express-html-send-v1")
-                            else "CWE-78: Express input to child_process.exec; discovery only."
-                            if rule.endswith("-express-exec-v1")
-                            else "Express request property to builtin eval; discovery only."
-                            if rule.endswith("-express-eval-v1")
-                            else "Flask request input to os.system; discovery only."
-                            if rule == "veriflow/joern-python-flask-system-v1"
-                            else "Spring GET parameter to JDBC SQL argument flow; discovery only."
-                            if language == "java"
-                            else "Experimental lookup(input)/system flow; discovery only."
-                            if language in {"python", "c", "cpp"}
-                            else "Experimental lookup(input)/eval flow; discovery only."
-                            if language in {"javascript", "typescript"}
-                            else "Experimental lookup(input)/Command flow; discovery only."
-                            if language == "go"
-                            else "Experimental lookup(input)/arg flow; discovery only."
-                            if language == "rust"
-                            else "Experimental Lookup(name) to CommandText flow; discovery only."
-                        )
-                    },
+                    "message": {"text": message or joern_profiles.message_for(rule, language)},
                     "locations": [locations[-1]],
                     "codeFlows": [
                         {"threadFlows": [{"locations": [{"location": loc} for loc in locations]}]}
@@ -254,35 +204,19 @@ def discover(
     rust_home=None,
     extraction_timeout=None,
     discovery_profile=None,
+    profile_binding=None,
 ):
-    """Explicit local opt-in; caller supplies trusted tools, never repository scripts."""
+    """Explicit local opt-in; caller supplies trusted tools, never repository scripts.
+
+    profile_binding runs an unapproved draft binding; only profile tests pass it.
+    """
     language = language or ("csharp" if repair_dir is not None else "java")
     if language not in SUFFIXES or (language == "csharp") != (repair_dir is not None):
         raise VeriFlowError("Unsupported Joern language/repair combination")
-    supported_profiles = {
-        "csharp-query-commandtext-v1": {"csharp"},
-        "csharp-query-file-read-v1": {"csharp"},
-        "csharp-query-shell-start-v1": {"csharp"},
-        "python-flask-system-v1": {"python"},
-        "python-flask-path-v1": {"python"},
-        "python-flask-ssrf-v1": {"python"},
-        "python-flask-sql-v1": {"python"},
-        "java-spring-file-path-v1": {"java"},
-        "java-spring-url-stream-v1": {"java"},
-        "java-spring-object-read-v1": {"java"},
-        "java-spring-xml-entities-v1": {"java"},
-        "java-spring-runtime-shell-v1": {"java"},
-        "express-html-send-v1": {"javascript", "typescript"},
-        "express-request-exec-v1": {"javascript", "typescript"},
-        "express-request-eval-v1": {"javascript", "typescript"},
-        "go-http-shell-v1": {"go"},
-        "rust-env-shell-v1": {"rust"},
-        "c-family-argv-system-v1": {"c", "cpp"},
-    }
-    if discovery_profile is not None and language not in supported_profiles.get(
-        discovery_profile, set()
-    ):
+    profile = profile_binding or joern_profiles.binding(language, discovery_profile, store)
+    if profile.language != language:
         raise VeriFlowError("Unsupported Joern discovery profile/language")
+    discovery_profile = profile.profile
     rust_toolchain = None
     if language == "rust":
         from veriflow.joern_rust import trusted_toolchain
@@ -291,55 +225,7 @@ def discover(
     elif rust_home is not None:
         raise VeriFlowError("Rust toolchain only applies to Rust scans")
     stage_options = {"rust_home": rust_toolchain} if rust_toolchain else {}
-    rule = {
-        "java": RULE,
-        "csharp": "veriflow/joern-csharp-lookup-commandtext-v1",
-        "python": PYTHON_RULE,
-        "javascript": "veriflow/joern-javascript-lookup-eval-v1",
-        "typescript": "veriflow/joern-typescript-lookup-eval-v1",
-        "go": "veriflow/joern-go-lookup-command-v1",
-        "rust": "veriflow/joern-rust-lookup-arg-v1",
-        "c": "veriflow/joern-c-lookup-system-v1",
-        "cpp": "veriflow/joern-cpp-lookup-system-v1",
-    }[language]
-    if discovery_profile == "csharp-query-shell-start-v1":
-        rule = "veriflow/joern-csharp-query-shell-start-v1"
-    if discovery_profile == "csharp-query-file-read-v1":
-        rule = "veriflow/joern-csharp-query-file-read-v1"
-    if discovery_profile == "csharp-query-commandtext-v1":
-        rule = "veriflow/joern-csharp-query-commandtext-v1"
-    if discovery_profile == "python-flask-system-v1":
-        from veriflow.joern_flask import RULE as flask_rule
-
-        rule = flask_rule
-    elif discovery_profile == "python-flask-sql-v1":
-        rule = "veriflow/joern-python-flask-sql-v1"
-    elif discovery_profile == "python-flask-ssrf-v1":
-        rule = "veriflow/joern-python-flask-ssrf-v1"
-    elif discovery_profile == "java-spring-runtime-shell-v1":
-        rule = "veriflow/joern-spring-get-runtime-shell-v1"
-    elif discovery_profile == "java-spring-xml-entities-v1":
-        rule = "veriflow/joern-spring-get-xml-entities-v1"
-    elif discovery_profile == "java-spring-object-read-v1":
-        rule = "veriflow/joern-spring-get-object-read-v1"
-    elif discovery_profile == "java-spring-url-stream-v1":
-        rule = "veriflow/joern-spring-get-url-stream-v1"
-    elif discovery_profile == "java-spring-file-path-v1":
-        rule = "veriflow/joern-spring-get-file-path-v1"
-    elif discovery_profile == "python-flask-path-v1":
-        rule = "veriflow/joern-python-flask-path-v1"
-    elif discovery_profile == "express-html-send-v1":
-        rule = f"veriflow/joern-{language}-express-html-send-v1"
-    elif discovery_profile == "express-request-exec-v1":
-        rule = f"veriflow/joern-{language}-express-exec-v1"
-    elif discovery_profile == "express-request-eval-v1":
-        rule = f"veriflow/joern-{language}-express-eval-v1"
-    if discovery_profile == "go-http-shell-v1":
-        rule = "veriflow/joern-go-http-shell-v1"
-    if discovery_profile == "c-family-argv-system-v1":
-        rule = f"veriflow/joern-{language}-argv-system-v1"
-    if discovery_profile == "rust-env-shell-v1":
-        rule = "veriflow/joern-rust-env-shell-v1"
+    rule = profile.rule_id
     if type(timeout) is not int or not 1 <= timeout <= 3600:
         raise VeriFlowError("Timeout must be between 1 and 3600 seconds")
     extraction_timeout = timeout if extraction_timeout is None else extraction_timeout
@@ -420,246 +306,24 @@ def discover(
             "requested_heap_mb_per_jvm": 2048,
             "raw_sarif_path": str(root / "results.sarif"),
             "log_path": str(root / "analyze.log"),
-            "limitations": [
-                "Public Spring GetMapping String RequestParam only; other sources omitted.",
-                "Exact JDBC Statement.executeQuery(String) graph signature only.",
-                "Java source only; dependencies, builds and other languages omitted.",
-                "Discovery only; no qualified triage or clean security verdict.",
-                "Version layout checked; installed tool contents not cryptographically verified.",
-                "Network not isolated; automatic result reuse disabled.",
-            ],
+            "limitations": list(profile.limitations),
             "omitted_file_count": len(manifest.files) - len(prepared),
         }
-        if discovery_profile == "java-spring-runtime-shell-v1":
-            report["cwe_scope"] = ["CWE-78"]
-            report["limitations"] = [
-                "Spring GET String RequestParam to Runtime.exec(String[]) shell text only.",
-                "Inline three-element array: literal sh/bash, -c, then command text.",
-                "Other overloads, ProcessBuilder, array variables and Windows shells omitted.",
-                "Guards, executable identity and runtime exploitability unverified.",
-                "Discovery only; advisory unsupported and no clean verdict.",
-            ]
-        if discovery_profile == "java-spring-xml-entities-v1":
-            report["cwe_scope"] = ["CWE-611"]
-            report["limitations"] = [
-                "Spring GET String RequestParam to DocumentBuilder.parse(InputSource) only.",
-                "Factory external-general-entities=true observed through direct local bindings.",
-                "Configuration ordering, reassignments, overrides and resolvers unverified.",
-                "Default/unknown settings and other XML APIs omitted; advisory unsupported.",
-                "External access restrictions and actual entity resolution unverified.",
-                "Discovery only; no clean verdict or proven exploitability.",
-            ]
-        if discovery_profile == "java-spring-object-read-v1":
-            report["cwe_scope"] = ["CWE-502"]
-            report["limitations"] = [
-                "Spring GET String RequestParam to exact ObjectInputStream.readObject receiver.",
-                "Base64 and byte-stream constructor propagation modeled; runtime unverified.",
-                "Object filters, allowlists, gadget classes and exploitability unverified.",
-                "Other sources, serializers and readUnshared omitted; advisory unsupported.",
-                "Discovery only; incomplete coverage and no clean verdict.",
-            ]
-        if discovery_profile == "java-spring-url-stream-v1":
-            report["cwe_scope"] = ["CWE-918"]
-            report["limitations"] = [
-                "Spring GET String RequestParam to exact URL.openStream receiver only.",
-                "URL constructor propagation is modeled; runtime access is unverified.",
-                "Redirects, DNS, destination policy and egress unverified; advisory unsupported.",
-                "Other HTTP clients and source bindings omitted; no clean verdict.",
-            ]
-        if discovery_profile == "java-spring-file-path-v1":
-            report["cwe_scope"] = ["CWE-22"]
-            report["limitations"] = [
-                "Spring GET String RequestParam to Files.readAllBytes(Path) only.",
-                "Modeled Path propagation is not proof of directory escape or runtime identity.",
-                "Confinement, guards and deployment access unverified; advisory unsupported.",
-                "Discovery only; incomplete coverage and no clean verdict.",
-            ]
-        if language == "python":
-            report["limitations"] = [
-                "Experimental lookup(input) parameter to call named system argument profile only.",
-                "Python source only; frameworks, dependencies and other languages omitted.",
-                "Call names do not authenticate os.system or prove runtime reachability.",
-                "Discovery only; no qualified triage, complete coverage or clean verdict.",
-                "Version layout checked; trusted operator tooling required.",
-                "Network not isolated by this command; automatic result reuse disabled.",
-            ]
-        if discovery_profile == "python-flask-system-v1":
-            report["limitations"] = [
-                "Single-line Flask request.args/form.get(string) to os.system argument only.",
-                "Top-level imports and no obvious rebinding required; aliases supported.",
-                "Dynamic monkeypatching, module resolution and HTTP reachability unqualified.",
-                "Ambiguous graph endpoints withheld; synthetic intermediate nodes retained.",
-                "Discovery only; no qualified triage, complete coverage or clean verdict.",
-                "Trusted tools required; command does not enforce OS network isolation.",
-            ]
-        if discovery_profile == "python-flask-sql-v1":
-            report["cwe_scope"] = ["CWE-89"]
-            report["limitations"] = [
-                "Flask input to sqlite3.connect(literal).execute positional SQL text only.",
-                "Bound values are not SQL text; cursor variables and other drivers unsupported.",
-                "SQL syntax, runtime identity and sanitizer effectiveness unverified.",
-                "Discovery only; advisory unsupported; incomplete coverage and no clean verdict.",
-            ]
-        if discovery_profile == "python-flask-ssrf-v1":
-            report["cwe_scope"] = ["CWE-918"]
-            report["limitations"] = [
-                "Flask args/form.get to imported requests.get positional URL only.",
-                "Destination restrictions, redirects, DNS and runtime egress unverified.",
-                "Single-line calls; optional positive literal timeout only; aliases supported.",
-                "Discovery only; advisory unsupported; incomplete coverage and no clean verdict.",
-            ]
-        if discovery_profile == "python-flask-path-v1":
-            report["limitations"] = [
-                "CWE-22 candidate: Flask args/form.get to unshadowed open read-path argument.",
-                "Single-line calls, positional paths, optional constant read mode only.",
-                "Directory confinement, guards and runtime builtin identity unverified.",
-                "Discovery only; advisory unsupported; no clean verdict or complete coverage.",
-            ]
-            report["cwe_scope"] = ["CWE-22"]
-        if language in {"javascript", "typescript"}:
-            report["limitations"] = [
-                "Experimental lookup(input) parameter to call named eval argument profile only.",
-                f"Only {SUFFIXES[language]} copied; mixed-language flows and JSX/TSX omitted.",
-                "Frameworks, project configuration, dependencies and builds omitted.",
-                "Call names do not authenticate builtin eval or prove runtime reachability.",
-                "Discovery only; no qualified triage, complete coverage or clean verdict.",
-                "Version layout checked; trusted operator tooling required.",
-                "Network not isolated by this command; automatic result reuse disabled.",
-            ]
-        if language == "go":
-            report["limitations"] = [
-                "Experimental lookup(input) to call named Command argument 3 profile only.",
-                "Only .go files and go.mod metadata copied; dependencies/builds omitted.",
-                "Call names do not authenticate os/exec.Command or prove shell execution.",
-                "Frameworks, cgo, build tags and advanced language semantics unqualified.",
-                "Discovery only; no qualified triage, complete coverage or clean verdict.",
-                "Version layout checked; trusted operator tooling required.",
-                "Go proxy/checksum downloads disabled; OS network isolation still required.",
-            ]
-        if discovery_profile == "go-http-shell-v1":
-            report["limitations"] = [
-                "net/http Request FormValue/PostFormValue graph signatures only.",
-                "os/exec.Command with literal sh/bash or /bin/sh /bin/bash, then -c only.",
-                "Command construction does not prove execution or HTTP route reachability.",
-                "Graph identities, dynamic mutation and sanitization are not qualified.",
-                "CommandContext, other shells, flags and HTTP sources omitted.",
-                "Only .go and go.mod copied; dependencies/builds and mixed languages omitted.",
-                "Discovery only; no qualified triage, complete coverage or clean verdict.",
-                "Go downloads disabled; command does not enforce OS network isolation.",
-            ]
-        if discovery_profile == "express-html-send-v1":
-            report["cwe_scope"] = ["CWE-79"]
-            report["limitations"] = [
-                "Express get/post inline callback request fields to response.type(html).send only.",
-                "Literal html/text/html and direct callback response receiver required.",
-                "Encoding, response mutations, middleware and browser execution unverified.",
-                "No runtime type guarantee; graph bindings are not runtime identity proof.",
-                "Other response APIs, templates and JSX/TSX omitted; advisory unsupported.",
-                "Discovery only; no clean verdict or proven exploitability.",
-            ]
-        if discovery_profile == "express-request-exec-v1":
-            report["cwe_scope"] = ["CWE-78"]
-            report["limitations"] = [
-                "Express get/post inline callbacks and query/body/params field reads only.",
-                "Resolved child_process:exec first argument; other execution APIs omitted.",
-                "Graph resolution does not prove runtime identity or HTTP exposure.",
-                "Shell command candidate; guards unverified; advisory unsupported.",
-                "Routers, middleware, computed fields and JSX/TSX omitted; no clean verdict.",
-            ]
-        if discovery_profile == "express-request-eval-v1":
-            report["limitations"] = [
-                "Express graph signatures for get/post and inline callback argument 2 only.",
-                "Factory import aliases are not qualified; dependencies/builds are omitted.",
-                "First callback parameter query/body/params field reads; builtin eval signature.",
-                "Graph resolution is not proof of package identity or HTTP/runtime reachability.",
-                "Routers, middleware, named callbacks, computed properties and JSX/TSX omitted.",
-                "Discovery only; no qualified triage, complete coverage or clean verdict.",
-                "Trusted tools required; command does not enforce OS network isolation.",
-            ]
-        if language in {"c", "cpp"}:
-            report["limitations"] = [
-                "Experimental lookup(input) to call named system argument 1 profile only.",
-                "Only .c/.h or .cpp/.h/.hpp files selected; other extensions omitted.",
-                "Source-only parsing; build settings and compilation databases omitted.",
-                "Call names do not authenticate system identity or prove runtime reachability.",
-                "C++ classes, templates, virtual dispatch and memory-safety rules unqualified.",
-                "Discovery only; no qualified triage, complete coverage or clean verdict.",
-                "Trusted tools required; command does not enforce OS network isolation.",
-            ]
-        if discovery_profile == "c-family-argv-system-v1":
-            report["limitations"] = [
-                "Global main second char**/char*[] parameter, positive decimal index reads only.",
-                "C++ system namespace/signature is unresolved; libc identity is unqualified.",
-                "Any local system definition withholds all sinks conservatively.",
-                "Graph signatures do not authenticate libc or prove runtime reachability.",
-                "Aliases, variable indices, macros and build configurations are unqualified.",
-                "C-style C++ only; classes, templates and memory-safety coverage unqualified.",
-                "Only selected source/header suffixes copied; dependencies/builds omitted.",
-                "Discovery only; no qualified triage, complete coverage or clean verdict.",
-                "Trusted tools required; command does not enforce OS network isolation.",
-            ]
+        if profile.cwe_scope is not None:
+            report["cwe_scope"] = list(profile.cwe_scope)
         if language == "rust":
             report["cargo_manifest_sha256"] = hashlib.sha256(cargo).hexdigest()
-            report["limitations"] = [
-                "Experimental lookup(input) to call named arg argument 1 profile only.",
-                "Dependency-free root Cargo crate with one explicit binary only.",
-                "Generated Cargo metadata disables build hooks and automatic target discovery.",
-                "Dependencies, workspaces, proc macros, cfg and framework coverage unqualified.",
-                "Call names do not authenticate Command ownership or prove shell execution.",
-                "Discovery only; no qualified triage, complete coverage or clean verdict.",
-                "Trusted Rust toolchain required; Cargo offline is not OS network isolation.",
-            ]
-        if discovery_profile == "rust-env-shell-v1":
-            report["limitations"] = [
-                "std::env::var literal key to chained shell command argument profile only.",
-                *report["limitations"][1:4],
-                *report["limitations"][5:],
-                "Chained Command::new literal sh/bash path, arg(-c), arg(value) graph forms only.",
-                "Environment attacker control and command execution are not established.",
-                "Only bounded receiver wrappers stripped; split builders/args arrays omitted.",
-                "Standard-library graph signatures and sanitizer semantics remain unqualified.",
-            ]
         if repair_dir is not None:
             report["repair_identity"] = repair_identity
-            report["limitations"] = [
-                "Experimental Lookup(name) parameter to CommandText assignment profile only.",
-                "C# source only; dependencies, builds and other languages omitted.",
-                "Syntax facts do not authenticate framework or database types.",
-                "Only uniquely mapped paths published; unsupported paths retained in raw output.",
-                "Discovery only; no qualified triage, complete coverage or clean verdict.",
-                "Trusted tools required; receipt hashes do not authenticate the publisher.",
-                "Network not isolated by this command; automatic result reuse disabled.",
-            ]
-        if discovery_profile == "csharp-query-commandtext-v1":
-            report["cwe_scope"] = ["CWE-89"]
-            report["limitations"] = [
-                "Parameter flows filtered by mapped FromQuery/classic HTTP syntax facts.",
-                "Method and parameter names unrestricted; runtime route exposure unverified.",
-                "CommandText property name only; database type and execution unverified.",
-                "Raw graph source counts include parameters before syntax filtering.",
-                "Syntax parser limits/ambiguity can omit paths; advisory unsupported.",
-                "Discovery only; no complete coverage or clean verdict.",
-            ]
-        if discovery_profile == "csharp-query-file-read-v1":
-            report["cwe_scope"] = ["CWE-22"]
-            report["limitations"] = [
-                "Mapped query-binding source to fully qualified System.IO.File.ReadAllText syntax.",
-                "Short names and local System/IO/File type lookalikes excluded.",
-                "Frontend API signature unresolved; receiver text is not binding proof.",
-                "Runtime API identity, confinement, guards and file access unverified.",
-                "Raw graph counts precede syntax filtering; parser limits can omit paths.",
-                "Other file APIs and query forms omitted; advisory unsupported.",
-                "Discovery only; no proven directory escape or clean verdict.",
-            ]
-        if discovery_profile == "csharp-query-shell-start-v1":
-            report["cwe_scope"] = ["CWE-78"]
-            report["limitations"] = [
-                "Mapped query-source to fully qualified Process.Start shell argument syntax.",
-                "Literal sh/bash executable and argument expression beginning with literal -c.",
-                "Runtime API identity, argument splitting and exploitability unverified.",
-                "Local System/Diagnostics/Process types excluded; other process forms omitted.",
-                "Raw counts precede syntax filtering; advisory unsupported; no clean verdict.",
-            ]
+        current = joern_profiles.catalog(store)
+        # Which catalog produced this attempt, so a candidate traces to the query that ran.
+        report["profile_provenance"] = {
+            "source": profile.source,
+            "mode": current.mode,
+            "registry_version": current.registry_version,
+            "draft_id": profile.draft_id,
+            "internal_pattern": profile.internal_pattern,
+        }
         with store.transaction() as session:
             session.add(ScanAttempt(id=attempt_id, run_id=run_id, created_at=now(), report=report))
         candidates = []
@@ -676,51 +340,24 @@ def discover(
                 (source / "Cargo.toml").write_bytes(cargo)
             endpoint_args = []
             endpoint_digest = None
-            if discovery_profile in {
-                "python-flask-system-v1",
-                "python-flask-path-v1",
-                "python-flask-ssrf-v1",
-                "python-flask-sql-v1",
-            }:
+            endpoints = profile.hooks.get("flask_endpoints")
+            if endpoints is not None:
                 from veriflow.joern_flask import parse_isolated
 
                 audit = []
+                # A local module with a modeled name could stand in for the real library.
+                modules = {"flask", "os", *endpoints["shadow_modules"]}
                 shadowed = any(
-                    Path(f.path).name in {"flask.py", "os.py"}
-                    or "flask" in Path(f.path).parts[:-1]
-                    or "os" in Path(f.path).parts[:-1]
-                    or (
-                        discovery_profile == "python-flask-ssrf-v1"
-                        and (
-                            Path(f.path).name == "requests.py"
-                            or "requests" in Path(f.path).parts[:-1]
-                        )
-                    )
-                    or (
-                        discovery_profile == "python-flask-sql-v1"
-                        and (
-                            Path(f.path).name == "sqlite3.py"
-                            or "sqlite3" in Path(f.path).parts[:-1]
-                        )
-                    )
+                    Path(f.path).name in {f"{module}.py" for module in modules}
+                    or any(module in Path(f.path).parts[:-1] for module in modules)
                     for f in selected
                 )
+                facts_option = {endpoints["facts"]: True} if endpoints["facts"] else {}
                 for record in selected:
                     facts = (
                         {"status": "local_module_shadow", "sources": [], "sinks": []}
                         if shadowed
-                        else parse_isolated(
-                            (source / record.path).read_bytes(),
-                            **(
-                                {"file_paths": True}
-                                if discovery_profile == "python-flask-path-v1"
-                                else {"http_urls": True}
-                                if discovery_profile == "python-flask-ssrf-v1"
-                                else {"sql_queries": True}
-                                if discovery_profile == "python-flask-sql-v1"
-                                else {}
-                            ),
-                        )
+                        else parse_isolated((source / record.path).read_bytes(), **facts_option)
                     )
                     audit.append(
                         dict(
@@ -739,49 +376,8 @@ def discover(
                 }
                 endpoint_args = ["--param", f"endpointFile={endpoint_path}"]
             query = root / "query.sc"
-            query.write_bytes(
-                files("veriflow")
-                .joinpath(
-                    "queries/joern-python-flask-sql.sc"
-                    if discovery_profile == "python-flask-sql-v1"
-                    else "queries/joern-python-flask-ssrf.sc"
-                    if discovery_profile == "python-flask-ssrf-v1"
-                    else "queries/joern-java-shell.sc"
-                    if discovery_profile == "java-spring-runtime-shell-v1"
-                    else "queries/joern-java-xml.sc"
-                    if discovery_profile == "java-spring-xml-entities-v1"
-                    else "queries/joern-java-deserialization.sc"
-                    if discovery_profile == "java-spring-object-read-v1"
-                    else "queries/joern-java-ssrf.sc"
-                    if discovery_profile == "java-spring-url-stream-v1"
-                    else "queries/joern-java-path.sc"
-                    if discovery_profile == "java-spring-file-path-v1"
-                    else "queries/joern-rust-env-shell.sc"
-                    if discovery_profile == "rust-env-shell-v1"
-                    else f"queries/joern-{language}-argv-system.sc"
-                    if discovery_profile == "c-family-argv-system-v1"
-                    else "queries/joern-go-http-shell.sc"
-                    if discovery_profile == "go-http-shell-v1"
-                    else f"queries/joern-{language}-express-html.sc"
-                    if discovery_profile == "express-html-send-v1"
-                    else f"queries/joern-{language}-express-exec.sc"
-                    if discovery_profile == "express-request-exec-v1"
-                    else f"queries/joern-{language}-express-eval.sc"
-                    if discovery_profile == "express-request-eval-v1"
-                    else "queries/joern-python-flask-path.sc"
-                    if discovery_profile == "python-flask-path-v1"
-                    else "queries/joern-python-flask-system.sc"
-                    if discovery_profile == "python-flask-system-v1"
-                    else "queries/joern-csharp-shell.sc"
-                    if discovery_profile == "csharp-query-shell-start-v1"
-                    else "queries/joern-csharp-path.sc"
-                    if discovery_profile == "csharp-query-file-read-v1"
-                    else "queries/joern-csharp-query.sc"
-                    if discovery_profile == "csharp-query-commandtext-v1"
-                    else f"queries/joern-{language}-flow.sc"
-                )
-                .read_bytes()
-            )
+            active_stage = "query_load"
+            query.write_bytes(joern_profiles.read_query(profile))
             query_digest = hashlib.sha256(query.read_bytes()).hexdigest()
             report["query_sha256"] = query_digest
             active_stage = "prepare"
@@ -847,12 +443,7 @@ def discover(
                     doc,
                     source,
                     selected,
-                    require_query_source=discovery_profile
-                    in {
-                        "csharp-query-commandtext-v1",
-                        "csharp-query-file-read-v1",
-                        "csharp-query-shell-start-v1",
-                    },
+                    require_query_source=profile.hooks.get("csharp_query_source", False),
                 )
                 (root / "source-mapping.json").write_text(json.dumps(mapping, indent=2))
                 report["source_mapping"] = {
@@ -860,7 +451,7 @@ def discover(
                     "unsupported_paths": mapping["unsupported_paths"],
                     "artifact": str(root / "source-mapping.json"),
                 }
-            sarif = to_sarif(raw, source, manifest, language, rule)
+            sarif = to_sarif(raw, source, manifest, language, rule, profile.message)
             candidates, summary = normalize(sarif, manifest, tree)
             (root / "results.sarif").write_bytes(sarif)
             report.update(summary, status="partial", sarif_sha256=hashlib.sha256(sarif).hexdigest())

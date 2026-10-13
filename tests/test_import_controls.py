@@ -103,6 +103,9 @@ def test_upgrade_preserves_imports(store, archive, manifest):
     batch = submit(store, manifest([row(archive)]), archive.parent, "migration")
     before = import_status(store, batch)["items"]
     with store.engine.begin() as connection:
+        connection.exec_driver_sql("DROP TABLE profile_approvals")
+        connection.exec_driver_sql("DROP TABLE profile_tests")
+        connection.exec_driver_sql("DROP TABLE profile_drafts")
         connection.exec_driver_sql("DROP TABLE rule_approvals")
         connection.exec_driver_sql("DROP TABLE rule_registries")
         connection.exec_driver_sql("DROP TABLE rule_drafts")

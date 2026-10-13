@@ -11,7 +11,7 @@ from sqlalchemy import select
 from veriflow.domain import VeriFlowError
 from veriflow.envelope import resolve as resolve_envelope
 from veriflow.indexing import verified_source
-from veriflow.joern_claims import RULE_POLICIES, native_audit
+from veriflow.joern_claims import native_audit, policy_for_rule
 from veriflow.persistence import Candidate, EvidenceBundle, ScanAttempt, exclusive_worker
 from veriflow.python_parser import MAX_BYTES
 from veriflow.sarif import MAX_SARIF_BYTES, bind_location, fingerprint, indexed
@@ -295,7 +295,7 @@ def _build_bundle(store, attempt_id, candidate_fingerprint, envelope=None, windo
                     record.path.endswith(
                         (".py", ".js", ".ts", ".go", ".rs", ".c", ".h", ".cpp", ".hpp")
                     )
-                    and candidate.evidence["rule_id"] in RULE_POLICIES
+                    and policy_for_rule(candidate.evidence["rule_id"], store)
                     and attempt.report.get("scanner", {}).get("engine_id") == "joern"
                 )
             )
@@ -389,7 +389,8 @@ def _build_bundle(store, attempt_id, candidate_fingerprint, envelope=None, windo
         "trust": "untrusted_source_and_tool_output",
         "reachability_proven": False,
     }
-    if content["engine_id"] == "joern" and content["rule_id"] in RULE_POLICIES:
+    gate_policy = policy_for_rule(content["rule_id"], store)
+    if content["engine_id"] == "joern" and gate_policy:
         content["joern_native_audit"] = native_audit(
             store.root / "scans" / attempt.id,
             attempt.report,
@@ -397,8 +398,9 @@ def _build_bundle(store, attempt_id, candidate_fingerprint, envelope=None, windo
             tree,
             raw,
             result,
-            policy=RULE_POLICIES[content["rule_id"]],
+            policy=gate_policy,
             max_nodes=location_limit - 1,
+            store=store,
         )
     if len(canonical(content)) > bounds.max_bundle_bytes:
         raise VeriFlowError("Evidence bundle exceeds the configured envelope limit")

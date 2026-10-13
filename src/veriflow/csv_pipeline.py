@@ -20,7 +20,7 @@ from urllib.parse import urlsplit
 from sqlalchemy import func, select
 from sqlalchemy.exc import OperationalError
 
-from veriflow import joern_pipeline, joern_selection
+from veriflow import joern_pipeline, joern_profiles, joern_selection
 from veriflow.artifacts import ArtifactStore, open_scoped_source
 from veriflow.bundles import build_bundle, canonical
 from veriflow.claims import bundle_engine
@@ -323,13 +323,14 @@ def ensure_import(store, header, row, input_root, directory, options, stamp, rec
     return item["run_id"]
 
 
-def attempt_state(store, attempt_id):
+def attempt_state(store, attempt_id, with_digest=False):
     with store.transaction() as session:
         attempt = session.get(ScanAttempt, attempt_id)
         count = session.scalar(
             select(func.count()).select_from(Candidate).where(Candidate.attempt_id == attempt_id)
         )
-        return attempt.report.get("status", "unknown"), count
+        state = attempt.report.get("status", "unknown"), count
+        return (*state, attempt.report.get("query_sha256")) if with_digest else state
 
 
 def prior_attempts(store, run_id):
@@ -357,21 +358,26 @@ def scan_profiles(store, run_id, plan, options, log, profiles):
         entry = {
             "language": language,
             "discovery_profile": name,
-            "review_policy": policy_for(language, profile),
+            "review_policy": policy_for(language, profile, store),
             "attempt_id": None,
             "report_id": None,
         }
         profiles.append(entry)
-        if language not in joern_selection.PROFILES:
+        if language not in joern_profiles.LANGUAGES:
             entry.update(status="unsupported_language", action="none")
             log.write(step=f"scan {language}/{name}", status="skipped", reason=entry["status"])
             continue
+        selected = joern_profiles.binding(language, profile, store)
+        entry["profile_source"] = selected.source
         prior = previous.get((language, name))
         reason = "not_scanned"
         if prior is not None:
-            status, count = attempt_state(store, prior)
+            status, count, digest = attempt_state(store, prior, with_digest=True)
+            # A failed attempt may not have recorded a query; report the failure first.
             if status not in USABLE:
                 reason = "previous_attempt_failed"
+            elif digest != selected.query_sha256:
+                reason = "query_changed"
             elif count == 0 and options.rescan_empty:
                 reason = "empty_rescan_requested"
             else:
@@ -777,7 +783,7 @@ def run_repository(
         with log.step("select", run_id=state["run_id"]) as record:
             run, manifest, _ = verified_source(store, state["run_id"])
             state["snapshot_id"] = manifest.snapshot_id
-            detected, plan = joern_selection.selection(manifest, "auto")
+            detected, plan = joern_selection.selection(manifest, "auto", store)
             state["detected_languages"] = detected
             record.update(detected_languages=detected, profiles=len(plan))
         scan_profiles(store, state["run_id"], plan, options, log, state["profiles"])
@@ -819,9 +825,34 @@ def run_pipeline(store, manifest, input_root, output, options, echo=None):
         breaker = ProviderBreaker()
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
         started_at, started = now(), time.monotonic()
-        with log.step("initialize", rows=len(rows)):
+        with log.step("initialize", rows=len(rows)) as record:
             store.initialize()
             preflight(options)
+            catalog = joern_profiles.catalog(store)
+            profile_catalog = {
+                "mode": catalog.mode,
+                "registry_version": catalog.registry_version,
+                "runtime_profiles": sorted(
+                    {f"{b.name} ({b.source})" for b in catalog.bindings if b.source != "packaged"}
+                ),
+                "problems": list(catalog.problems),
+                "ignored_directory_profiles": list(catalog.ignored),
+            }
+            record.update(
+                profile_mode=catalog.mode,
+                registry_version=catalog.registry_version,
+                runtime_profiles=len(profile_catalog["runtime_profiles"]),
+                profile_problems=len(catalog.problems),
+            )
+            for problem in catalog.problems:
+                log.write(step="profile catalog", status="profile_skipped", **problem)
+            if catalog.ignored:
+                log.write(
+                    step="profile catalog",
+                    status="directory_ignored",
+                    reason="approved mode loads only packaged and approved profiles",
+                    profiles=list(catalog.ignored),
+                )
         seen = {}
         results = [
             run_repository(
@@ -836,6 +867,7 @@ def run_pipeline(store, manifest, input_root, output, options, echo=None):
             duration_seconds=round(time.monotonic() - started, 3),
             manifest_name=manifest.name,
             provider_unavailable=breaker.tripped,
+            profile_catalog=profile_catalog,
         )
         write_summary(output / "summary", summary)
         log.write(step="pipeline", status=summary["status"], repositories=len(results))

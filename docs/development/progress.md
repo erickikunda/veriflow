@@ -1,4 +1,34 @@
-# Implementation progress through Slice 160
+# Implementation progress through Slice 163
+
+## Slice 163 — Default review gate for runtime Joern profiles
+
+Runtime profiles now get the generic `runtime-native-v1` gate by default (`"review_gate":
+"none"` opts out). It keeps every packaged-gate check that works for any query — native output
+integrity, byte-identical SARIF regeneration, query digest, node code on its source line,
+complete context — and requires the model's source and sink claims to cite the recorded path
+endpoints. It does not check endpoint syntax and records that. A missing-store message lookup
+that withheld every runtime audit was found and fixed. See [Slice 163](slice-163.md).
+
+## Slice 162 — Runtime Joern profiles
+
+Operators can now add a Joern query at runtime, with no code change or image rebuild. In the
+default `trusted-directory` mode a descriptor and query under `<state-dir>/profiles` are picked
+up by every Joern command, including `--joern-profile auto`; `--profile-mode approved` runs only
+profiles that passed an executed fixture test (`profile-test`) and an approval
+(`profile-approve`). Attempts record their profile source and query digest, and reuse now
+requires the same query text. Migration `0012` lets drafts exist without an LLM candidate and
+records profile tests. A real Joern run found a `CommandContext` shell flow that the packaged Go
+profile does not cover. See [Slice 162](slice-162.md). Next build and try it on OCP.
+
+## Slice 161 — Declarative Joern profile catalog
+
+All 31 packaged Joern profile bindings moved from six hard-coded places in `joern.py` and
+`joern_selection.py` into `profiles/joern-packaged.json`, read through `joern_profiles.py`.
+Behaviour is unchanged: a golden capture of every (language, profile) binding, written from the
+code before the change, is reproduced exactly, and a real Joern run gives identical candidates.
+Code-backed steps stay in `joern.py` as named hooks that only packaged profiles may use. See
+[Slice 161](slice-161.md). Next phase 1: runtime profiles from a trusted directory or the
+approved registry.
 
 ## Slice 160 — CSV pipeline command and advisory under automatic selection
 
