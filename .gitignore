@@ -14,3 +14,5 @@ work/
 .cocoindex_code/
 # CocoIndex Code (ccc)
 /.cocoindex_code/
+.veriflow/
+.DS_Store
