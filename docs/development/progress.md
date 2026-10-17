@@ -1,4 +1,12 @@
-# Implementation progress through Slice 163
+# Implementation progress through Slice 164
+
+## Slice 164 — Unmetered LLM discovery without the output-token and timeout ceilings
+
+With `--unmetered`, `--llm-discovery-max-output-tokens` (up to 128000) and
+`--llm-discovery-timeout-seconds` (up to 600) now lift the config's 8192-token and 120-second
+ceilings for discovery requests only, the provider-response read limit grows with the tokens,
+and a cost overrun no longer discards the proposals. The config file and triage are unchanged.
+See [Slice 164](slice-164.md).
 
 ## Slice 163 — Default review gate for runtime Joern profiles
 

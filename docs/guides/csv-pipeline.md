@@ -34,6 +34,8 @@ container; this command does not acquire.
 | `--ungated-triage / --no-ungated-triage` | on | Send candidates of profiles without a reviewed gate |
 | `--llm-discovery` | off | Add one LLM discovery pass per detected language |
 | `--llm-discovery-config` | `--advisory-config` | Separate model config for discovery |
+| `--llm-discovery-max-output-tokens` | config value | With `--unmetered`: discovery output tokens above the config ceiling (128–128000) |
+| `--llm-discovery-timeout-seconds` | config value | With `--unmetered`: discovery request timeout above the config's 120 s (1–600) |
 | `--joern-repair-dir`, `--rust-home` | none | Needed for C# and Rust; missing ones become scope errors |
 | `--no-check-connectivity` | check on | Skip the TCP probe of live endpoints |
 | `--replay`, `--llm-discovery-replay` | none | Replay responses for replay configs |

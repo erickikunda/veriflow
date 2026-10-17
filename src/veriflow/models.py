@@ -266,7 +266,7 @@ class LiveAdapter:
     def _invoke_https(self, body):
         return self.parse(self._request_raw(body))
 
-    def _request_raw(self, body):
+    def _request_raw(self, body, limit=128 * 1024):
         config = self.config
         if not config.allow_source_transmission:
             raise VeriFlowError("Live source transmission is disabled")
@@ -287,9 +287,9 @@ class LiveAdapter:
         )
         # No retries: a timeout may already have incurred a charge.
         with opener.open(request, timeout=config.timeout_seconds) as response:
-            raw = response.read(128 * 1024 + 1)
-        if len(raw) > 128 * 1024:
-            raise VeriFlowError("Provider output exceeds 128 KiB")
+            raw = response.read(limit + 1)
+        if len(raw) > limit:
+            raise VeriFlowError("Provider output exceeds its byte limit")
         return raw
 
 

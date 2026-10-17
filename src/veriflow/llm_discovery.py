@@ -38,6 +38,10 @@ SCHEMA_VERSION = "1"
 PROMPT_VERSION = "llm-discovery-1"
 MAX_PACKET_BYTES = 64 * 1024
 MAX_RESPONSE_BYTES = 128 * 1024
+# Unmetered discovery may ask for more output than ModelConfig allows; this stays a hard cap.
+MAX_UNMETERED_OUTPUT_TOKENS = 128_000
+MAX_UNMETERED_RESPONSE_BYTES = 8 * 1024 * 1024
+MAX_UNMETERED_TIMEOUT_SECONDS = 600
 MAX_DISCOVERY_FILE_BYTES = 1024 * 1024
 DISCOVERY_SUFFIXES = {
     "python": (".py",),
@@ -210,10 +214,21 @@ class DiscoveryOptions:
     request_key: str
     max_excerpts: int = 8
     unmetered: bool = False
+    # Replace config.max_output_tokens / timeout_seconds for discovery; only valid when unmetered.
+    max_output_tokens: int | None = None
+    timeout_seconds: int | None = None
 
 
 def load_options(
-    enabled, replay, request_key, max_excerpts=8, config_path=None, *, unmetered=False
+    enabled,
+    replay,
+    request_key,
+    max_excerpts=8,
+    config_path=None,
+    *,
+    unmetered=False,
+    max_output_tokens=None,
+    timeout_seconds=None,
 ):
     if not enabled:
         if (
@@ -228,6 +243,24 @@ def load_options(
         raise VeriFlowError("LLM discovery requires a request key")
     if not 1 <= max_excerpts <= 12:
         raise VeriFlowError("LLM discovery excerpt limit must be between 1 and 12")
+    if max_output_tokens is not None:
+        if not unmetered:
+            raise VeriFlowError("A discovery output-token override requires --unmetered")
+        if type(max_output_tokens) is not int or not (
+            128 <= max_output_tokens <= MAX_UNMETERED_OUTPUT_TOKENS
+        ):
+            raise VeriFlowError(
+                f"Discovery output tokens must be between 128 and {MAX_UNMETERED_OUTPUT_TOKENS}"
+            )
+    if timeout_seconds is not None:
+        if not unmetered:
+            raise VeriFlowError("A discovery timeout override requires --unmetered")
+        if type(timeout_seconds) is not int or not (
+            1 <= timeout_seconds <= MAX_UNMETERED_TIMEOUT_SECONDS
+        ):
+            raise VeriFlowError(
+                f"Discovery timeout must be between 1 and {MAX_UNMETERED_TIMEOUT_SECONDS} seconds"
+            )
     config = (
         read_config(config_path)
         if config_path is not None
@@ -243,6 +276,8 @@ def load_options(
         request_key,
         max_excerpts,
         unmetered,
+        max_output_tokens,
+        timeout_seconds,
     )
 
 
@@ -394,7 +429,25 @@ def parse_discovery_response(provider, raw):
         return DiscoveryReply(status="invalid_output")
 
 
-def invoke_live(config, body):
+def response_limit(output_tokens):
+    """Bytes to read from the provider: room for the requested tokens, never unbounded."""
+    return max(MAX_RESPONSE_BYTES, min(MAX_UNMETERED_RESPONSE_BYTES, output_tokens * 16))
+
+
+def effective_config(config, max_output_tokens=None, timeout_seconds=None):
+    """The config a discovery request is built and charged with; validation is not rerun."""
+    update = {
+        key: value
+        for key, value in (
+            ("max_output_tokens", max_output_tokens),
+            ("timeout_seconds", timeout_seconds),
+        )
+        if value is not None
+    }
+    return config.model_copy(update=update) if update else config
+
+
+def invoke_live(config, body, max_response_bytes=MAX_RESPONSE_BYTES, timeout_seconds=None):
     if config.provider not in {"openai", "anthropic", "ollama"}:
         raise VeriFlowError("Live discovery requires OpenAI, Anthropic or Ollama")
     if not config.allow_source_transmission:
@@ -403,12 +456,21 @@ def invoke_live(config, body):
     secret = os.environ.get(config.api_key_env) if requires_key else None
     if requires_key and not secret:
         raise VeriFlowError("Configured API-key environment variable is absent")
+    timeout = timeout_seconds or config.timeout_seconds
     child = subprocess.run(
         [sys.executable, "-I", "-m", "veriflow.llm_discovery"],
-        input=canonical({"config": config.model_dump(), "body": body}),
+        # The child revalidates the operator config; the token override is already in body.
+        input=canonical(
+            {
+                "config": config.model_dump(),
+                "body": body,
+                "max_response_bytes": max_response_bytes,
+                "timeout_seconds": timeout,
+            }
+        ),
         env={config.api_key_env: secret} if requires_key else {},
         capture_output=True,
-        timeout=config.timeout_seconds + 3,
+        timeout=timeout + 3,
         check=False,
     )
     if child.returncode:
@@ -732,7 +794,16 @@ def _record_replay(store, attempt_id, packet, response, response_raw, request_ke
         return result
 
 
-def _record_live(store, attempt_id, packet, config, request_key, unmetered=False):
+def _record_live(
+    store,
+    attempt_id,
+    packet,
+    config,
+    request_key,
+    unmetered=False,
+    max_output_tokens=None,
+    timeout_seconds=None,
+):
     from veriflow.triage import cost_micro_usd
 
     if not request_key.strip() or len(request_key) > 200:
@@ -741,8 +812,9 @@ def _record_live(store, attempt_id, packet, config, request_key, unmetered=False
         raise VeriFlowError("Packet classification is not allowed by model policy")
     if config.provider in {"openai", "anthropic"} and not os.environ.get(config.api_key_env):
         raise VeriFlowError("Configured API-key environment variable is absent")
-    body = discovery_body(packet, config)
-    policy_identity = config.model_dump()
+    effective = effective_config(config, max_output_tokens, timeout_seconds)
+    body = discovery_body(packet, effective)
+    policy_identity = effective.model_dump()
     request = {
         "schema_version": SCHEMA_VERSION,
         "prompt_version": PROMPT_VERSION,
@@ -753,7 +825,7 @@ def _record_live(store, attempt_id, packet, config, request_key, unmetered=False
     }
     digest = hashlib.sha256(canonical(request)).hexdigest()
     estimated_input = len(canonical(body)) + 4096
-    reservation = cost_micro_usd(estimated_input, config.max_output_tokens, config)
+    reservation = cost_micro_usd(estimated_input, effective.max_output_tokens, config)
     with exclusive_worker(store.root):
         with store.transaction() as session:
             attempt = session.get(ScanAttempt, attempt_id)
@@ -799,6 +871,12 @@ def _record_live(store, attempt_id, packet, config, request_key, unmetered=False
             ],
         }
         result["metered"] = not unmetered
+        result["max_output_tokens"] = effective.max_output_tokens
+        result["output_limit_source"] = (
+            "config" if max_output_tokens is None else "unmetered_override"
+        )
+        result["timeout_seconds"] = effective.timeout_seconds
+        result["timeout_source"] = "config" if timeout_seconds is None else "unmetered_override"
         with store.transaction() as session:
             budget = session.get(TriageBudget, attempt.run_id)
             if budget is None and not unmetered:
@@ -844,7 +922,12 @@ def _record_live(store, attempt_id, packet, config, request_key, unmetered=False
         if state != "running":
             return result
         try:
-            reply = invoke_live(config, body)
+            reply = invoke_live(
+                config,
+                body,
+                response_limit(effective.max_output_tokens),
+                effective.timeout_seconds,
+            )
             state = reply.status
             if reply.usage is not None:
                 charged = cost_micro_usd(
@@ -856,6 +939,9 @@ def _record_live(store, attempt_id, packet, config, request_key, unmetered=False
             else:
                 result["accounting_note"] = "Usage missing; full reservation retained"
             if charged > reservation:
+                # Unmetered runs record the overrun and keep the answer; metered runs stop.
+                result["reservation_exceeded_micro_usd"] = charged - reservation
+            if charged > reservation and not unmetered:
                 state = "reservation_exceeded"
             elif reply.status == "completed" and reply.response is not None:
                 try:
@@ -911,6 +997,8 @@ def run_hybrid_discovery(store, attempt_id, options):
             options.config,
             options.request_key,
             options.unmetered,
+            options.max_output_tokens,
+            options.timeout_seconds,
         )
     invoked = result["state"] not in {"budget_exhausted", "request_limit_exhausted"}
     return {
@@ -957,8 +1045,17 @@ if __name__ == "__main__":
             raise ValueError()
         payload = json.loads(raw_input)
         config = ModelConfig.model_validate(payload["config"])
-        adapter = live_adapter(config)
-        raw = adapter._request_raw(payload["body"])
+        # The operator config is validated as written; only the unmetered timeout is applied.
+        timeout = payload.get("timeout_seconds", config.timeout_seconds)
+        if type(timeout) is not int or not 1 <= timeout <= MAX_UNMETERED_TIMEOUT_SECONDS:
+            raise ValueError()
+        adapter = live_adapter(config.model_copy(update={"timeout_seconds": timeout}))
+        limit = payload.get("max_response_bytes", MAX_RESPONSE_BYTES)
+        if type(limit) is not int or not MAX_RESPONSE_BYTES <= limit <= (
+            MAX_UNMETERED_RESPONSE_BYTES
+        ):
+            raise ValueError()
+        raw = adapter._request_raw(payload["body"], limit)
         reply = parse_discovery_response(config.provider, raw)
         sys.stdout.buffer.write(canonical(reply.model_dump()))
     except Exception:

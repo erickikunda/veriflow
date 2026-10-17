@@ -428,7 +428,16 @@ def scan_profiles(store, run_id, plan, options, log, profiles):
 
 
 def discover(store, detected, profiles, options, log, passes, breaker):
-    digest = config_digest(options.discovery.config)[:16]
+    # The unmetered overrides change the request, so they must change the request key too.
+    digest = hashlib.sha256(
+        canonical(
+            [
+                config_digest(options.discovery.config),
+                options.discovery.max_output_tokens,
+                options.discovery.timeout_seconds,
+            ]
+        )
+    ).hexdigest()[:16]
     for language in detected:
         anchor = discovery_anchor(profiles, language)
         if language not in DISCOVERY_SUFFIXES or anchor is None or breaker.tripped:

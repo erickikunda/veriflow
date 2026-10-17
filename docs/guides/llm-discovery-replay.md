@@ -111,6 +111,36 @@ and redirects, performs no retry, applies the configured CA file and total timeo
 response. A timeout or transport failure retains the reservation because the provider charge may
 be unknown. Local Ollama uses the same subprocess and structured schema without an API key.
 
+### Unmetered discovery
+
+With `--unmetered`, discovery skips the run budget and request cap; every charge is still
+recorded. Unmetered discovery also changes two more limits:
+
+- `--llm-discovery-max-output-tokens N` (128–128000) replaces the config's
+  `max_output_tokens` for discovery requests only, so a discovery answer can exceed the config
+  ceiling of 8192. Without `--unmetered` the option is refused. The config file is unchanged and
+  still validated; triage keeps using the config value. The provider-response read limit grows
+  with N (16 bytes per token, at least 128 KiB, at most 8 MiB).
+- `--llm-discovery-timeout-seconds N` (1–600) replaces the config's `timeout_seconds` (at
+  most 120) for discovery requests only. It applies to the HTTP request in the isolated child
+  and to the child's wall-clock limit (N + 3 seconds). The child still validates the config as
+  written and accepts only 1–600 for the override.
+- A call whose actual cost exceeds its reservation keeps its proposals. The overrun is recorded
+  as `reservation_exceeded_micro_usd`; metered runs still stop with `reservation_exceeded`.
+
+```sh
+uv run veriflow --state-dir STATE scan-run RUN_ID --engine joern --joern-home JOERN \
+  --llm-discovery --llm-discovery-config MODEL_CONFIG_JSON --llm-discovery-key KEY \
+  --unmetered --llm-discovery-max-output-tokens 32000 --llm-discovery-timeout-seconds 600 \
+  --advisory-config ADVISORY_JSON --review-policy auto --advisory-key ADVICE_KEY
+```
+
+Each call records `max_output_tokens`, `output_limit_source`, `timeout_seconds` and
+`timeout_source` (`config` or `unmetered_override`). Limits that still apply: at most 600
+seconds per request (a longer answer is stored as `unknown`), the provider's own model maximum
+and gateway timeouts, at most 20 proposals per answer, and for Ollama `ollama_context_tokens`,
+which must hold the request plus the requested output.
+
 Discovery and triage share the run’s monetary and request caps. `triage-report` now shows triage
 calls, discovery calls, total requests and combined accounted cost. Published reports include
 discovery-call count and combine discovery charges into simulated/live/unknown cost fields.

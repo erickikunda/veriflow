@@ -365,7 +365,9 @@ def test_live_discovery_uses_shared_budget(store, evidence_fixture, tmp_path, mo
         usage=Usage(input_tokens=100, output_tokens=20),
     )
     monkeypatch.setenv("TRACEPROOF_OPENAI_API_KEY", "test-secret")
-    monkeypatch.setattr(llm_discovery, "invoke_live", lambda config, body: reply)
+    monkeypatch.setattr(
+        llm_discovery, "invoke_live", lambda config, body, limit=None, timeout=None: reply
+    )
     set_budget(store, run_id, 100000, max_requests=2)
     result = run_hybrid_discovery(store, attempt_id, options)
     assert result["state"] == "completed" and result["live_model_calls"] == 1
@@ -440,3 +442,221 @@ def test_provider_response_parsing(provider):
     assert parsed.status == "completed"
     assert parsed.response.coverage_notes == ["bounded"]
     assert parsed.usage.input_tokens == 10
+
+
+def anthropic_config(tmp_path):
+    config = ModelConfig(
+        provider="anthropic",
+        model="approved-security-model",
+        endpoint="https://api.anthropic.example/v1/messages",
+        allowed_endpoint_hosts=["api.anthropic.example"],
+        allowed_classifications=["synthetic"],
+        allow_source_transmission=True,
+        api_key_env="TRACEPROOF_ANTHROPIC_API_KEY",
+        input_micro_usd_per_1k=1000,
+        output_micro_usd_per_1k=2000,
+        max_output_tokens=1024,
+    )
+    path = tmp_path / "anthropic-config.json"
+    path.write_text(config.model_dump_json())
+    return path
+
+
+def test_output_token_override_requires_unmetered_and_bounds(tmp_path):
+    path = anthropic_config(tmp_path)
+    with pytest.raises(VeriFlowError, match="requires --unmetered"):
+        load_options(True, None, "k", 8, path, max_output_tokens=32000)
+    for value in (127, 128_001):
+        with pytest.raises(VeriFlowError, match="between 128"):
+            load_options(True, None, "k", 8, path, unmetered=True, max_output_tokens=value)
+    options = load_options(True, None, "k", 8, path, unmetered=True, max_output_tokens=64000)
+    assert options.max_output_tokens == 64000 and options.config.max_output_tokens == 1024
+
+
+@pytest.mark.parametrize("unmetered", [True, False])
+def test_unmetered_discovery_lifts_output_ceiling_and_keeps_overrun_answers(
+    store, evidence_fixture, tmp_path, monkeypatch, unmetered
+):
+    run_id, attempt_id, _, _, _, response_doc = documents(store, evidence_fixture, tmp_path)
+    path = anthropic_config(tmp_path)
+    if unmetered:
+        options = load_options(True, None, "big", 8, path, unmetered=True, max_output_tokens=64000)
+    else:
+        options = load_options(True, None, "big", 8, path)
+        set_budget(store, run_id, 10**9, max_requests=5)
+    seen = {}
+
+    def fake(config, body, limit=None, timeout=None):
+        seen.update(max_tokens=body["max_tokens"], limit=limit, child=config.max_output_tokens)
+        seen["timeout"] = timeout
+        # Far more output than any reservation, to exercise the overrun path.
+        return DiscoveryReply(
+            status="completed",
+            response=DiscoveryResponse.model_validate(response_doc),
+            usage=Usage(input_tokens=100, output_tokens=500_000),
+        )
+
+    monkeypatch.setenv("TRACEPROOF_ANTHROPIC_API_KEY", "test-secret")
+    monkeypatch.setattr(llm_discovery, "invoke_live", fake)
+    result = run_hybrid_discovery(store, attempt_id, options)
+    assert result["reservation_exceeded_micro_usd"] > 0
+    if unmetered:
+        assert seen == {"max_tokens": 64000, "limit": 64000 * 16, "child": 1024, "timeout": 60}
+        assert result["output_limit_source"] == "unmetered_override"
+        assert result["state"] == "completed" and result["candidate_rows_created"] == 1
+        assert result["metered"] is False
+    else:
+        assert seen["max_tokens"] == 1024 and seen["limit"] == llm_discovery.MAX_RESPONSE_BYTES
+        assert result["state"] == "reservation_exceeded"
+        assert result["candidate_rows_created"] == 0
+
+
+def test_child_refuses_out_of_range_response_limits():
+    assert llm_discovery.response_limit(1024) == llm_discovery.MAX_RESPONSE_BYTES
+    assert llm_discovery.response_limit(64000) == 64000 * 16
+    assert llm_discovery.response_limit(10**9) == llm_discovery.MAX_UNMETERED_RESPONSE_BYTES
+
+
+def test_cli_passes_the_discovery_token_override(monkeypatch, tmp_path):
+    received = {}
+
+    def fake(*args, **kwargs):
+        received.update(kwargs)
+        return {"status": "incomplete"}
+
+    monkeypatch.setattr(pipeline, "scan_run", fake)
+    advisory = tmp_path / "advisory.json"
+    advisory.write_text(json.dumps({"provider": "replay", "model": "fixture"}))
+    replay = tmp_path / "replay.json"
+    replay.write_text("{}")
+    base = [
+        "--state-dir",
+        str(tmp_path),
+        "scan-run",
+        "run",
+        "--engine",
+        "joern",
+        "--joern-home",
+        "/tools",
+        "--llm-discovery",
+        "--llm-discovery-key",
+        "k",
+        "--llm-discovery-config",
+        str(anthropic_config(tmp_path)),
+    ]
+    refused = CliRunner().invoke(app, [*base, "--llm-discovery-max-output-tokens", "32000"])
+    assert refused.exit_code == 1 and "requires --unmetered" in refused.output
+    accepted = CliRunner().invoke(
+        app,
+        [
+            *base,
+            "--llm-discovery-max-output-tokens",
+            "32000",
+            "--llm-discovery-timeout-seconds",
+            "600",
+            "--unmetered",
+            "--advisory-config",
+            str(advisory),
+            "--review-policy",
+            "auto",
+            "--advisory-key",
+            "a",
+            "--replay",
+            str(replay),
+        ],
+    )
+    assert accepted.exit_code == 0, accepted.output
+    assert received["llm_discovery"].max_output_tokens == 32000
+    assert received["llm_discovery"].timeout_seconds == 600
+    refused = CliRunner().invoke(app, [*base, "--llm-discovery-timeout-seconds", "600"])
+    assert refused.exit_code == 1 and "timeout override requires --unmetered" in refused.output
+
+
+def test_timeout_override_requires_unmetered_and_bounds(tmp_path):
+    path = anthropic_config(tmp_path)
+    with pytest.raises(VeriFlowError, match="timeout override requires --unmetered"):
+        load_options(True, None, "k", 8, path, timeout_seconds=600)
+    for value in (0, 601):
+        with pytest.raises(VeriFlowError, match="between 1 and 600"):
+            load_options(True, None, "k", 8, path, unmetered=True, timeout_seconds=value)
+    options = load_options(True, None, "k", 8, path, unmetered=True, timeout_seconds=600)
+    assert options.timeout_seconds == 600 and options.config.timeout_seconds == 60
+
+
+def test_unmetered_timeout_reaches_the_request_and_the_record(
+    store, evidence_fixture, tmp_path, monkeypatch
+):
+    run_id, attempt_id, _, _, _, response_doc = documents(store, evidence_fixture, tmp_path)
+    options = load_options(
+        True, None, "slow", 8, anthropic_config(tmp_path), unmetered=True, timeout_seconds=600
+    )
+    seen = {}
+
+    def fake(config, body, limit=None, timeout=None):
+        seen.update(timeout=timeout, child=config.timeout_seconds)
+        return DiscoveryReply(
+            status="completed",
+            response=DiscoveryResponse.model_validate(response_doc),
+            usage=Usage(input_tokens=10, output_tokens=10),
+        )
+
+    monkeypatch.setenv("TRACEPROOF_ANTHROPIC_API_KEY", "test-secret")
+    monkeypatch.setattr(llm_discovery, "invoke_live", fake)
+    result = run_hybrid_discovery(store, attempt_id, options)
+    assert seen == {"timeout": 600, "child": 60}
+    assert result["timeout_seconds"] == 600 and result["timeout_source"] == "unmetered_override"
+
+
+def test_invoke_live_passes_the_timeout_to_the_child(monkeypatch):
+    import subprocess as real_subprocess
+
+    captured = {}
+
+    def fake_run(args, input, env, capture_output, timeout, check):
+        captured.update(payload=json.loads(input), timeout=timeout)
+        return real_subprocess.CompletedProcess(args, 1, b"", b"")
+
+    config = ModelConfig.model_validate_json(anthropic_config_json())
+    monkeypatch.setenv("TRACEPROOF_ANTHROPIC_API_KEY", "test-secret")
+    monkeypatch.setattr(llm_discovery.subprocess, "run", fake_run)
+    with pytest.raises(VeriFlowError, match="charge may be unknown"):
+        llm_discovery.invoke_live(config, {"x": 1}, 4096 * 32, 600)
+    assert captured["timeout"] == 603
+    assert captured["payload"]["timeout_seconds"] == 600
+    assert captured["payload"]["config"]["timeout_seconds"] == 60
+
+
+@pytest.mark.parametrize("timeout", [0, 601, "600"])
+def test_child_refuses_out_of_range_timeouts(timeout):
+    import subprocess
+    import sys
+
+    payload = {
+        "config": json.loads(anthropic_config_json()),
+        "body": {"x": 1},
+        "max_response_bytes": 128 * 1024,
+        "timeout_seconds": timeout,
+    }
+    child = subprocess.run(
+        [sys.executable, "-I", "-m", "veriflow.llm_discovery"],
+        input=json.dumps(payload).encode(),
+        env={"TRACEPROOF_ANTHROPIC_API_KEY": "unused"},
+        capture_output=True,
+        timeout=60,
+    )
+    # Refused before any network access; no provider detail is echoed.
+    assert child.returncode == 1 and child.stdout == b"" and child.stderr == b""
+
+
+def anthropic_config_json():
+    return ModelConfig(
+        provider="anthropic",
+        model="approved-security-model",
+        endpoint="https://api.anthropic.example/v1/messages",
+        allowed_endpoint_hosts=["api.anthropic.example"],
+        allowed_classifications=["synthetic"],
+        allow_source_transmission=True,
+        api_key_env="TRACEPROOF_ANTHROPIC_API_KEY",
+        input_micro_usd_per_1k=1000,
+        output_micro_usd_per_1k=2000,
+    ).model_dump_json()

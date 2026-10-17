@@ -725,6 +725,22 @@ def scan_run_command(
     llm_discovery_replay: Path | None = None,
     llm_discovery_key: str | None = None,
     llm_discovery_max_excerpts: Annotated[int, typer.Option(min=1, max=12)] = 8,
+    llm_discovery_max_output_tokens: Annotated[
+        int | None,
+        typer.Option(
+            min=128,
+            max=128_000,
+            help="With --unmetered: discovery output tokens beyond the config's 8192 ceiling",
+        ),
+    ] = None,
+    llm_discovery_timeout_seconds: Annotated[
+        int | None,
+        typer.Option(
+            min=1,
+            max=600,
+            help="With --unmetered: discovery request timeout beyond the config's 120 seconds",
+        ),
+    ] = None,
 ):
     """Scan and publish, with optional replay-backed additive LLM discovery."""
     from veriflow.envelope import resolve as resolve_envelope
@@ -780,6 +796,8 @@ def scan_run_command(
                 llm_discovery_max_excerpts,
                 llm_discovery_config,
                 unmetered=unmetered,
+                max_output_tokens=llm_discovery_max_output_tokens,
+                timeout_seconds=llm_discovery_timeout_seconds,
             ),
         )
     )
@@ -834,6 +852,22 @@ def run_pipeline_from_csv_command(
     ] = None,
     llm_discovery_replay: Path | None = None,
     llm_discovery_max_excerpts: Annotated[int, typer.Option(min=1, max=12)] = 8,
+    llm_discovery_max_output_tokens: Annotated[
+        int | None,
+        typer.Option(
+            min=128,
+            max=128_000,
+            help="With --unmetered: discovery output tokens beyond the config's 8192 ceiling",
+        ),
+    ] = None,
+    llm_discovery_timeout_seconds: Annotated[
+        int | None,
+        typer.Option(
+            min=1,
+            max=600,
+            help="With --unmetered: discovery request timeout beyond the config's 120 seconds",
+        ),
+    ] = None,
     extraction_timeout: Annotated[int, typer.Option(min=1, max=3600)] = 300,
     query_timeout: Annotated[int, typer.Option(min=1, max=3600)] = 600,
     check_connectivity: Annotated[
@@ -889,6 +923,8 @@ def run_pipeline_from_csv_command(
                 llm_discovery_max_excerpts,
                 (llm_discovery_config or advisory_config) if llm_discovery else None,
                 unmetered=unmetered,
+                max_output_tokens=llm_discovery_max_output_tokens,
+                timeout_seconds=llm_discovery_timeout_seconds,
             ),
             envelope=resolve_envelope(
                 envelope_config,
